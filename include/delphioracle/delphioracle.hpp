@@ -25,7 +25,8 @@ using namespace eosio;
 
 static const std::string system_str("system");
 
-static const asset one_larimer = asset(1, symbol("EOS", 4));
+static const asset one_larimer = asset(1, symbol("TLOS", 4));
+
 
 const checksum256 NULL_HASH;
 const eosio::time_point NULL_TIME_POINT = eosio::time_point(eosio::microseconds(0));
@@ -139,7 +140,7 @@ CONTRACT delphioracle : public eosio::contract {
     //variables
     uint64_t id;
     uint64_t total_datapoints_count;
-    asset total_claimed = asset(0, symbol("EOS", 4));
+    asset total_claimed = asset(0, symbol("TLOS", 4));
 
     //constants
     uint64_t datapoints_per_instrument = 21;
@@ -290,7 +291,7 @@ CONTRACT delphioracle : public eosio::contract {
     name proposer;
     name name;
 
-    asset bounty_amount = asset(0, symbol("EOS", 4));
+    asset bounty_amount = asset(0, symbol("TLOS", 4));
 
     std::vector<eosio::name> approving_custodians;
     std::vector<eosio::name> approving_oracles;
@@ -600,7 +601,7 @@ private:
         s.owner = owner;
         s.timestamp = current_time_point();
         s.count = 1;
-        s.balance = asset(0, symbol("EOS", 4));
+        s.balance = asset(0, symbol("TLOS", 4));
         s.last_claim = NULL_TIME_POINT;
       });
 
@@ -622,7 +623,7 @@ private:
         s.owner = owner;
         s.timestamp = current_time_point();
         s.count = 1;
-        s.balance = asset(0, symbol("EOS", 4));
+        s.balance = asset(0, symbol("TLOS", 4));
         s.last_claim = NULL_TIME_POINT;
       });
 
@@ -866,10 +867,10 @@ private:
 
       //avoid rounding issues by giving leftovers to top contributor
       if (i == 1){
-        payout = asset(amount, symbol("EOS", 4));
+        payout = asset(amount, symbol("TLOS", 4));
       }
       else {
-        payout = asset(uquota, symbol("EOS", 4));
+        payout = asset(uquota, symbol("TLOS", 4));
       }
 
       amount-= uquota;
