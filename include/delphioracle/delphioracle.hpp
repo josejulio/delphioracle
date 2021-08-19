@@ -2,8 +2,8 @@
 
   delphioracle
 
-  Authors: 
-    Guillaume "Gnome" Babin-Tremblay - EOS Titan 
+  Authors:
+    Guillaume "Gnome" Babin-Tremblay - EOS Titan
     Andrew "netuoso" Chaney - EOS Titan
 
   Website: https://eostitan.com
@@ -74,40 +74,11 @@ CONTRACT delphioracle : public eosio::contract {
     uint64_t quoted_precision;
   };
 
-
   //Quote
   struct quote {
     uint64_t value;
     name pair;
   };
-
-  //eosmechanics::cpu
-  struct event {
-    uint64_t value;
-    name instrument;
-  };
-
-/*   struct blockchain_parameters {
-      uint64_t free_ram()const { return max_ram_size - total_ram_bytes_reserved; }
-
-      uint64_t             max_ram_size = 64ll*1024 * 1024 * 1024;
-      uint64_t             total_ram_bytes_reserved = 0;
-      int64_t              total_ram_stake = 0;
-
-      block_timestamp      last_producer_schedule_update;
-      time_point           last_pervote_bucket_fill;
-      int64_t              pervote_bucket = 0;
-      int64_t              perblock_bucket = 0;
-      uint32_t             total_unpaid_blocks = 0; /// all blocks which have been produced but not paid
-      int64_t              total_activated_stake = 0;
-      time_point           thresh_activated_stake_time;
-      uint16_t             last_producer_schedule_size = 0;
-      double               total_producer_vote_weight = 0; /// the sum of all producer votes
-      block_timestamp      last_name_close;
-
-      uint64_t primary_key()const { return 1;      }
-   };
-*/
 
   struct producer_info {
     name                  owner;
@@ -170,7 +141,7 @@ CONTRACT delphioracle : public eosio::contract {
   //Holds the last datapoints_count datapoints from qualified oracles
   TABLE datapoints {
     uint64_t id;
-    name owner; 
+    name owner;
     uint64_t value;
     uint64_t median;
     time_point timestamp;
@@ -182,7 +153,7 @@ CONTRACT delphioracle : public eosio::contract {
   };
 
   //Holds the last hashes from qualified oracles
-  TABLE hashes {
+  [[deprecated]] TABLE hashes {
     uint64_t id;
     name owner;
     checksum256 multiparty;
@@ -198,7 +169,7 @@ CONTRACT delphioracle : public eosio::contract {
 
   //Holds the count and time of last writes for qualified oracles
   TABLE stats {
-    name owner; 
+    name owner;
     time_point timestamp;
     uint64_t count;
     time_point last_claim;
@@ -208,31 +179,6 @@ CONTRACT delphioracle : public eosio::contract {
     uint64_t by_count() const {return -count;}
 
   };
-
-  //Holds aggregated datapoints
-  TABLE bars {
-    uint64_t id;
-
-    uint64_t high;
-    uint64_t low;
-    uint64_t median;
-    time_point timestamp;
-
-    uint64_t primary_key() const {return id;}
-    uint64_t by_timestamp() const {return timestamp.elapsed.to_seconds();}
-
-  };
-/*
-  //Holds bounties information
-  TABLE bounties {
-
-    name name;
-    std::string description;
-    asset bounty;
-
-    uint64_t primary_key() const {return name.value;}
-
-  };*/
 
   //Holds rewards information
   TABLE donations {
@@ -303,17 +249,8 @@ CONTRACT delphioracle : public eosio::contract {
     symbol quote_symbol;
     asset_type quote_type;
     eosio::name quote_contract;
-    
+
     uint64_t quoted_precision;
-
-    uint64_t primary_key() const {return name.value;}
-
-  };
-
-  //Holds the list of pairs
-  TABLE networks {
-
-    name name;
 
     uint64_t primary_key() const {return name.value;}
 
@@ -369,9 +306,10 @@ CONTRACT delphioracle : public eosio::contract {
   typedef eosio::multi_index<"npairs"_n, pairs> npairstable;
 
   typedef eosio::multi_index<"datapoints"_n, datapoints,
-      indexed_by<"value"_n, const_mem_fun<datapoints, uint64_t, &datapoints::by_value>>, 
+      indexed_by<"value"_n, const_mem_fun<datapoints, uint64_t, &datapoints::by_value>>,
       indexed_by<"timestamp"_n, const_mem_fun<datapoints, uint64_t, &datapoints::by_timestamp>>> datapointstable;
 
+  [[deprecated]]
   typedef eosio::multi_index<"hashes"_n, hashes,
       indexed_by<"timestamp"_n, const_mem_fun<hashes, uint64_t, &hashes::by_timestamp>>,
       indexed_by<"owner"_n, const_mem_fun<hashes, uint64_t, &hashes::by_owner>>,
@@ -392,38 +330,20 @@ CONTRACT delphioracle : public eosio::contract {
   typedef eosio::multi_index<"abusers"_n, abusers,
       indexed_by<"votes"_n, const_mem_fun<abusers, uint64_t, &abusers::by_votes>>> abuserstable;
 
-  //typedef eosio::multi_index<"bounties"_n, bounties> bountiestable;
-
-  std::string to_hex( const char* d, uint32_t s ) 
-  {
-      std::string r;
-      const char* to_hex="0123456789abcdef";
-      uint8_t* c = (uint8_t*)d;
-      for( uint32_t i = 0; i < s; ++i )
-          (r += to_hex[(c[i]>>4)]) += to_hex[(c[i] &0x0f)];
-      return r;
-  }
-
   //Write datapoint
   ACTION write(const name owner, const std::vector<quote>& quotes);
-  ACTION writehash(const name owner, const checksum256 hash, const std::string reveal);
-  ACTION forfeithash(const name owner);
   ACTION claim(name owner);
   ACTION configure(globalinput g);
   ACTION newbounty(name proposer, pairinput pair);
   ACTION cancelbounty(name name, std::string reason);
   ACTION votebounty(name owner, name bounty);
   ACTION unvotebounty(name owner, name bounty);
-  ACTION editbounty(name name, pairinput pair);
-  ACTION editpair(pairs pair);
-  ACTION deletepair(name name);
   ACTION addcustodian(name name);
   ACTION delcustodian(name name);
   ACTION reguser(name owner);
   ACTION clear(name pair);
   ACTION updateusers();
   ACTION voteabuser(name owner, name abuser);
-  ACTION migratedata();
 
   [[eosio::on_notify("eosio.token::transfer")]]
   void transfer(uint64_t sender, uint64_t receiver) {
@@ -435,60 +355,39 @@ CONTRACT delphioracle : public eosio::contract {
     print("transfer ", name{transfer_data.from}, " ",  name{transfer_data.to}, " ", transfer_data.quantity, "\n");
 
     //if incoming transfer
-    if (transfer_data.from != _self && transfer_data.to == _self){
-
-      //check if memo contains the name of an existing pair
-
-      pairstable pairs(_self, _self.value);
-      //bountiestable bounties(_self, _self.value);
-
-      //auto name_index = pairs.get_index<"name"_n>();
-
-      // print("name(transfer_data.memo)", name(transfer_data.memo), "\n");
-      // print("transfer_data.memo", transfer_data.memo, "\n");
-
-      if (transfer_data.memo == system_str ) return; //transfer to system account
+    if (transfer_data.from != _self && transfer_data.to == _self) {
+        pairstable pairs(_self, _self.value);
+        if (transfer_data.memo == system_str )
+          return; //transfer to system account
 
       auto itr = pairs.find(name(transfer_data.memo).value);
-
-      //auto bitr = bounties.find(name(transfer_data.memo).value;
-
-      if (itr != pairs.end() && itr->bounty_awarded == true ) process_donation(transfer_data.from, itr->name, transfer_data.quantity);
-      else if (itr != pairs.end() && itr->bounty_awarded == false) process_bounty(transfer_data.from, itr->name, transfer_data.quantity);
-      else process_donation(transfer_data.from, _self, transfer_data.quantity);
-
+      if (itr != pairs.end() && itr->bounty_awarded == true )
+        process_donation(transfer_data.from, itr->name, transfer_data.quantity);
+      else if (itr != pairs.end() && itr->bounty_awarded == false)
+        process_bounty(transfer_data.from, itr->name, transfer_data.quantity);
+      else
+        process_donation(transfer_data.from, _self, transfer_data.quantity);
     }
-
   }
 
   using write_action = action_wrapper<"write"_n, &delphioracle::write>;
-  using writehash_action = action_wrapper<"writehash"_n, &delphioracle::writehash>;
   using claim_action = action_wrapper<"claim"_n, &delphioracle::claim>;
   using configure_action = action_wrapper<"configure"_n, &delphioracle::configure>;
   using newbounty_action = action_wrapper<"newbounty"_n, &delphioracle::newbounty>;
   using cancelbounty_action = action_wrapper<"cancelbounty"_n, &delphioracle::cancelbounty>;
   using votebounty_action = action_wrapper<"votebounty"_n, &delphioracle::votebounty>;
   using unvotebounty_action = action_wrapper<"unvotebounty"_n, &delphioracle::unvotebounty>;
-  using editbounty_action = action_wrapper<"editbounty"_n, &delphioracle::editbounty>;
-  using editpair_action = action_wrapper<"editpair"_n, &delphioracle::editpair>;
-  using deletepair_action = action_wrapper<"deletepair"_n, &delphioracle::deletepair>;
   using addcustodian_action = action_wrapper<"addcustodian"_n, &delphioracle::addcustodian>;
   using delcustodian_action = action_wrapper<"delcustodian"_n, &delphioracle::delcustodian>;
   using reguser_action = action_wrapper<"reguser"_n, &delphioracle::reguser>;
   using clear_action = action_wrapper<"clear"_n, &delphioracle::clear>;
   using voteabuser_action = action_wrapper<"voteabuser"_n, &delphioracle::voteabuser>;
   using updateusers_action = action_wrapper<"updateusers"_n, &delphioracle::updateusers>;
-  using migratedata_action = action_wrapper<"migratedata"_n, &delphioracle::migratedata>;
   using transfer_action = action_wrapper<name("transfer"), &delphioracle::transfer>;
 
 private:
-
-  static uint128_t composite_key(const uint64_t &x, const uint64_t &y) {
-      return (uint128_t{x} << 64) | y;
-  }
-
   //Check if calling account is a qualified oracle
-  bool check_oracle(const name owner){
+  bool check_oracle(const name owner) {
 
     globaltable gtable(_self, _self.value);
     producers_table ptable("eosio"_n, name("eosio").value);
@@ -509,40 +408,6 @@ private:
     }
 
     return false;
-  }
-
-  checksum256 get_multiparty_hash(const name owner, const std::string reveal){
-
-    hashestable htable(_self, _self.value);
-
-    auto itr = htable.rbegin();
-
-    while (itr != htable.rend()){
-      if(itr->owner != owner && itr->reveal!=""){
-        
-
-        std::string prev_multiparty = to_hex((char*)itr->multiparty.extract_as_byte_array().data(), sizeof(itr->multiparty));
-
-        print("reveal:", reveal, "\n");
-        print("prev_multiparty:", prev_multiparty, "\n");
-
-        std::string to_hash(prev_multiparty);
-
-        to_hash+= reveal;
-
-        print("to_hash:", to_hash, "\n");
-
-        checksum256 h = sha256(to_hash.c_str(), to_hash.length());
-
-        print("h:", h, "\n");
-
-        return h;
-      }
-      itr++;
-    }
-    
-    return NULL_HASH;
-
   }
 
   //Check if calling account is can vote on bounties
@@ -662,11 +527,11 @@ private:
       std::make_tuple(_self, ""_n, bps)
     );
     act.send();
- 
+
   }
 
   //Push oracle message on top of queue, pop oldest element if queue size is larger than datapoints_count
-  void update_datapoints(const name owner, const uint64_t value, pairstable::const_iterator pair_itr){
+  void update_datapoints(const name owner, const uint64_t value, pairstable::const_iterator pair_itr) {
 
     globaltable gtable(_self, _self.value);
     datapointstable dstore(_self, pair_itr->name.value);
@@ -675,35 +540,11 @@ private:
     //uint64_t primary_key ;
 
     //Calculate new primary key by substracting one from the previous one
- /*   auto latest = dstore.begin();
-    primary_key = latest->id - 1;*/
+    // auto latest = dstore.begin();
+    // primary_key = latest->id - 1;
 
     auto t_idx = dstore.get_index<"timestamp"_n>();
-
     auto oldest = t_idx.begin();
-
-/*
-
-  auto idx = hashtable.get_index<"producer"_n>();
-    auto itr = idx.find(producer);
-    if (itr != idx.end()) {
-      idx.modify(itr, producer, [&](auto& prod_hash) {
-        prod_hash.hash = hash;
-      });
-    } else {*/
-
-
-    //Pop oldest point
-    //t_idx.erase(oldest);
-
-    //Insert next datapoint
-/*    auto c_itr = dstore.emplace(_self, [&](auto& s) {
-      s.id = primary_key;
-      s.owner = owner;
-      s.value = value;
-      s.timestamp = current_time_point().sec_since_epoch();
-    });*/
-
 
     t_idx.modify(oldest, _self, [&](auto& s) {
      // s.id = primary_key;
@@ -717,17 +558,12 @@ private:
 
     //skip first 10 values
     auto itr = value_sorted.begin();
-    itr++;
-    itr++;
-    itr++;
-    itr++;
-    itr++;
-    itr++;
-    itr++;
-    itr++;
-    itr++;
+    for (auto i = 1; i < 10; ++i)
+    {
+      itr++;
+    }
 
-    median=itr->value;
+    median = itr->value;
 
     //set median
     t_idx.modify(oldest, _self, [&](auto& s) {
@@ -738,14 +574,11 @@ private:
       s.total_datapoints_count++;
     });
 
-    auto gitr =  gtable.begin();
-
+    auto gitr = gtable.begin();
     print("gtable.begin()->total_datapoints_count:", gitr->total_datapoints_count,  "\n");
 
-    if (gtable.begin()->total_datapoints_count % gitr->vote_interval == 0){
+    if (gtable.begin()->total_datapoints_count % gitr->vote_interval == 0)
       update_votes();
-    }
-
   }
 
   //Delphi Oracle - Bounty logic
@@ -755,7 +588,7 @@ private:
 
   //Once the bounty has been created, anyone can contribute to the bounty by sending a transfer with the bounty name in the memo
 
-  //Custodians of the contract or the bounty proposer can cancel the bounty. This refunds RAM to the proposer, as well as all donations made to the bounty 
+  //Custodians of the contract or the bounty proposer can cancel the bounty. This refunds RAM to the proposer, as well as all donations made to the bounty
   //  to original payer accounts.
 
   //Custodians of the contract can edit the bounty's name and description (curation and standardization process)
@@ -771,13 +604,6 @@ private:
   //No more than 1 pair can be activated per X period of time (72 hours?)
 
   //The bounty is then paid at a rate of X larimers per datapoint to BPs contributing to it until it runs out.
-
-
-  //create a new pair request bounty
-
-
-
-
 
   void create_user(name owner) {
 
@@ -795,7 +621,7 @@ private:
 
   }
 
-  void process_donation(name from, name scope, asset quantity){
+  void process_donation(name from, name scope, asset quantity) {
 
     globaltable gtable(_self, _self.value);
     statstable cstore(_self, scope.value);
@@ -903,7 +729,7 @@ private:
         itr--;
         print("decrement 1", "\n");
 
-      } 
+      }
     }
 
 
