@@ -3,12 +3,12 @@
   delphioracle
 
   Authors: Guillaume "Gnome" Babin-Tremblay - EOS Titan, Andrew "netuoso" Chaney - EOS Titan
-  
+
   Website: https://eostitan.com
   Email: guillaume@eostitan.com
 
   Github: https://github.com/eostitan/delphioracle/
-  
+
   Published under MIT License
 
 */
@@ -17,9 +17,9 @@
 
 //Write datapoint
 ACTION delphioracle::write(const name owner, const std::vector<quote>& quotes) {
-  
+
   require_auth(owner);
-  
+
   int length = quotes.size();
 
   print("length ", length);
@@ -34,7 +34,7 @@ ACTION delphioracle::write(const name owner, const std::vector<quote>& quotes) {
 
   for (int i=0; i<length;i++){
     print("quote ", i, " ", quotes[i].value, " ",  quotes[i].pair, "\n");
-    
+
     auto itr = pairs.find(quotes[i].pair.value);
 
     check(itr!=pairs.end() && itr->active == true, "pair not allowed");
@@ -69,78 +69,9 @@ ACTION delphioracle::write(const name owner, const std::vector<quote>& quotes) {
 
 }
 
-ACTION delphioracle::writehash(const name owner, const checksum256 hash, const std::string reveal) {
-
-  require_auth(owner);
-
-  check(check_oracle(owner), "user is not a qualified oracle");
-
-  hashestable hstore(_self, _self.value);
-
-  auto o_idx = hstore.get_index<"owner"_n>();
-
-  checksum256 multiparty = NULL_HASH;
-
-  auto previous_hash = o_idx.find(owner.value);
-  if( previous_hash != o_idx.end() ) {
-
-    checksum256 hashed = sha256(reveal.c_str(), reveal.length());
-
-    // increment count for user if their hash verified
-    check(hashed == previous_hash->hash, "hash mismatch");
-
-    check_last_push(owner, "random"_n);
-
-    multiparty = get_multiparty_hash(owner, reveal);
-
-    o_idx.erase(previous_hash);
-
-    globaltable gtable(_self, _self.value);
-    auto gitr =  gtable.begin();
-
-    gtable.modify(gitr, _self, [&](auto& s) {
-      s.total_datapoints_count++;
-    });
-
-    if (gtable.begin()->total_datapoints_count % gitr->vote_interval == 0){
-      update_votes();
-    }
-
-  }
-  else {
-    check(reveal=="", "reveal must be empty string on first writehash call");
-  }
-
-  // store users hash in table for future verification
-  hstore.emplace(owner, [&](auto& o) {
-    o.id = hstore.available_primary_key();
-    o.owner = owner;
-    o.multiparty = multiparty;
-    o.hash = hash;
-    o.reveal = reveal;
-    o.timestamp = current_time_point();
-  });
-
-}
-
-
-ACTION delphioracle::forfeithash(name owner) {
-
-  require_auth(owner);
-
-  hashestable hstore(_self, _self.value);
-
-  auto o_idx = hstore.get_index<"owner"_n>();
-
-  auto previous_hash = o_idx.find(owner.value);
-
-  if( previous_hash != o_idx.end() ) o_idx.erase(previous_hash);
-
-}
-
 //claim rewards
 ACTION delphioracle::claim(name owner) {
-  
+
   require_auth(owner);
 
   globaltable gtable(_self, _self.value);
@@ -154,9 +85,6 @@ ACTION delphioracle::claim(name owner) {
 
   asset payout = itr->balance;
 
-  //if( existing->quantity.amount == quantity.amount ) {
-  //   bt.erase( *existing );
-  //} else {
   sstore.modify( *itr, _self, [&]( auto& a ) {
       a.balance = asset(0, symbol("TLOS", 4));
       a.last_claim = current_time_point();
@@ -165,10 +93,6 @@ ACTION delphioracle::claim(name owner) {
   gtable.modify( *gitr, _self, [&]( auto& a ) {
       a.total_claimed += payout;
   });
-
-  //}
-
-  //if quantity symbol == EOS -> token_contract
 
   action act(
     permission_level{_self, "active"_n},
@@ -181,7 +105,7 @@ ACTION delphioracle::claim(name owner) {
 
 //temp configuration
 ACTION delphioracle::configure(globalinput g) {
-  
+
   require_auth(_self);
 
   globaltable gtable(_self, _self.value);
@@ -250,7 +174,7 @@ ACTION delphioracle::configure(globalinput g) {
 
       //First data point starts at uint64 max
       uint64_t primary_key = 0;
-     
+
       for (uint16_t i=0; i < 21; i++){
 
         //Insert next datapoint
@@ -275,8 +199,8 @@ ACTION delphioracle::configure(globalinput g) {
 
 //Once the bounty has been created, anyone can contribute to the bounty by sending a transfer with the bounty name in the memo
 
-//Custodians of the contract or the bounty proposer can cancel the bounty. This refunds RAM to the proposer, as well as all donations made to the bounty 
-//  to original payer accounts. 
+//Custodians of the contract or the bounty proposer can cancel the bounty. This refunds RAM to the proposer, as well as all donations made to the bounty
+//  to original payer accounts.
 
 //Custodians of the contract can edit the bounty's name and description (curation and standardization process)
 
@@ -298,7 +222,7 @@ ACTION delphioracle::newbounty(name proposer, pairinput pair) {
 
   require_auth(proposer);
 
-  //Add request, proposer pays the RAM for the request + data structure for datapoints & bars. 
+  //Add request, proposer pays the RAM for the request + data structure for datapoints & bars.
 
   pairstable pairs(_self, _self.value);
   datapointstable dstore(_self, pair.name.value);
@@ -322,7 +246,7 @@ ACTION delphioracle::newbounty(name proposer, pairinput pair) {
 
   //First data point starts at uint64 max
   uint64_t primary_key = 0;
- 
+
   for (uint16_t i=0; i < 21; i++){
 
     //Insert next datapoint
@@ -340,7 +264,7 @@ ACTION delphioracle::newbounty(name proposer, pairinput pair) {
 
 //cancel a bounty
 ACTION delphioracle::cancelbounty(name name, std::string reason) {
-  
+
   pairstable pairs(_self, _self.value);
   datapointstable dstore(_self, name.value);
 
@@ -370,7 +294,7 @@ ACTION delphioracle::cancelbounty(name name, std::string reason) {
 //vote bounty
 ACTION delphioracle::votebounty(name owner, name bounty) {
 
-  require_auth(owner); 
+  require_auth(owner);
 
   pairstable pairs(_self, _self.value);
 
@@ -410,7 +334,7 @@ ACTION delphioracle::votebounty(name owner, name bounty) {
       print("custodian added vote \n");
 
       vote_approved=true;
-      
+
     }
     else err_msg = "custodian already voting for bounty";
 
@@ -465,7 +389,7 @@ ACTION delphioracle::votebounty(name owner, name bounty) {
 //vote bounty
 ACTION delphioracle::unvotebounty(name owner, name bounty) {
 
-  require_auth(owner); 
+  require_auth(owner);
 
   pairstable pairs(_self, _self.value);
 
@@ -497,7 +421,7 @@ ACTION delphioracle::unvotebounty(name owner, name bounty) {
     });
 
     print("custodian removed vote \n");
-    
+
   }
   else {
 
@@ -523,42 +447,10 @@ ACTION delphioracle::unvotebounty(name owner, name bounty) {
 
 }
 
-//edit a bounty's information
-ACTION delphioracle::editbounty(name name, pairinput pair) {
-
-  eosio::name proposer;
-
-  check(has_auth(_self) || has_auth(proposer), "missing required authority of contract or proposer");
-
-  //check if bounty_edited_by_custodians == false || has_auth(_self), otherwise throw exception. Custodians have final say
-  //edit bounty data
-
-  //if edited by custodians, set flag bounty_edited_by_custodians to true
-
-}
-
-//edit pair 
-ACTION delphioracle::editpair(pairs pair) {
-  
-  require_auth(_self);
-  
-  //edit pair description
-
-}
-
-//delete pair 
-ACTION delphioracle::deletepair(name name) {
-  
-  require_auth(_self); //controlled by msig over active key
-  
-  //delete pair, post reason to chain for reference
-
-}
-
 //add custodian
 ACTION delphioracle::addcustodian(name name) {
 
-  require_auth(_self); 
+  require_auth(_self);
 
   custodianstable custodians(_self, _self.value);
 
@@ -572,7 +464,7 @@ ACTION delphioracle::addcustodian(name name) {
 //remove custodian
 ACTION delphioracle::delcustodian(name name) {
 
-  require_auth(_self); 
+  require_auth(_self);
 
   custodianstable custodians(_self, _self.value);
 
@@ -631,8 +523,7 @@ ACTION delphioracle::clear(name pair) {
   datapointstable estore(_self,  pair.value);
   pairstable pairs(_self, _self.value);
   custodianstable ctable(_self, _self.value);
-  hashestable htable(_self, _self.value);
-  
+
   while (ctable.begin() != ctable.end()) {
       auto itr = ctable.end();
       itr--;
@@ -654,31 +545,24 @@ ACTION delphioracle::clear(name pair) {
   while (lstore.begin() != lstore.end()) {
       auto itr = lstore.end();
       itr--;
-      lstore.erase(itr);    
+      lstore.erase(itr);
   }
-  
+
   while (estore.begin() != estore.end()) {
       auto itr = estore.end();
       itr--;
       estore.erase(itr);
   }
-  
+
   while (pairs.begin() != pairs.end()) {
       auto itr = pairs.end();
       itr--;
       pairs.erase(itr);
   }
-  
-  while (htable.begin() != htable.end()) {
-      auto itr = htable.end();
-      itr--;
-      htable.erase(itr);
-  }
-
 }
 
 ACTION delphioracle::voteabuser(const name owner, const name abuser) {
-  
+
   require_auth(owner);
   check(check_oracle(abuser), "abuser is not a qualified oracle");
 
@@ -711,100 +595,5 @@ ACTION delphioracle::voteabuser(const name owner, const name abuser) {
   print("user: ", owner, " is voting for abuser: ", abuser, " with total stake: ", total_donated + total_proxied);
 
   // store data for abuse vote
-
-}
-
-ACTION delphioracle::migratedata() {
-
-  require_auth(_self);
-
-  statstable stats(name("delphibackup"), name("delphibackup").value);
-  statstable _stats(_self, _self.value);
-
-  check(_stats.begin() == _stats.end(), "stats info already exists; call clear first");
-
-  oglobaltable global(name("delphibackup"), name("delphibackup").value);
-  globaltable _global(_self, _self.value);
-
-  auto glitr = global.begin();
-
-  _global.emplace(_self, [&](auto& g){
-    g.id = glitr->id;
-    g.total_datapoints_count = glitr->total_datapoints_count;
-    g.datapoints_per_instrument = 21;
-    g.bars_per_instrument = 30;
-    g.vote_interval = 10000;
-    g.write_cooldown = 55000000;
-    g.approver_threshold = 1;
-    g.approving_oracles_threshold = 2;
-    g.approving_custodians_threshold = 1;
-    g.minimum_rank = 105;
-    g.paid = 21;
-    g.min_bounty_delay = 604800;
-    g.new_bounty_delay = 259200;
-  });
-
-  auto gitr = stats.begin();
-  while (gitr != stats.end()) {
-    _stats.emplace(_self, [&](auto& s){
-      s.owner = gitr->owner;
-      s.timestamp = gitr->timestamp;
-      s.count = gitr->count;
-      s.last_claim = gitr->last_claim;
-      s.balance = gitr->balance;
-    });
-    gitr++;
-  }
-
-  npairstable pairs(name("delphibackup"), name("delphibackup").value);
-  pairstable _pairs(_self, _self.value);
-  auto pitr = pairs.begin();
-  while (pitr != pairs.end()) {
-    _pairs.emplace(_self, [&](auto& p){
-      p.active = pitr->active;
-      p.bounty_awarded = pitr->bounty_awarded;
-      p.bounty_edited_by_custodians = pitr->bounty_edited_by_custodians;
-      p.proposer = pitr->proposer;
-      p.name = pitr->name;
-      p.bounty_amount = pitr->bounty_amount;
-      p.base_symbol =  pitr->base_symbol;
-      p.base_type = pitr->base_type;
-      p.base_contract = pitr->base_contract;
-      p.quote_symbol = pitr->quote_symbol;
-      p.quote_type = pitr->quote_type;
-      p.quote_contract = pitr->quote_contract;
-      p.quoted_precision = pitr->quoted_precision;
-    });
-
-    statstable pstats(name("delphibackup"), pitr->name.value);
-    statstable _pstats(_self, pitr->name.value);
-    auto sitr = pstats.begin();
-    while (sitr != pstats.end()) {
-      _pstats.emplace(_self, [&](auto& s){
-        s.owner = sitr->owner;
-        s.timestamp = sitr->timestamp;
-        s.count = sitr->count;
-        s.last_claim = sitr->last_claim;
-        s.balance = sitr->balance;
-      });
-      sitr++;
-    }
-
-    datapointstable datapoints(name("delphibackup"), pitr->name.value);
-    datapointstable _datapoints(_self, pitr->name.value);
-    auto ditr = datapoints.begin();
-    while (ditr != datapoints.end()) {
-      _datapoints.emplace(_self, [&](auto& d){
-        d.id = ditr->id;
-        d.owner = ditr->owner;
-        d.value = ditr->value;
-        d.median = ditr->median;
-        d.timestamp = ditr->timestamp;
-      });
-      ditr++;
-    }
-
-    pitr++;
-  }
 
 }
