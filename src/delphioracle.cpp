@@ -17,14 +17,13 @@
 
 //Write datapoint
 ACTION delphioracle::write(const name owner, const std::vector<quote>& quotes) {
-
   require_auth(owner);
+  check_active_producer(owner);
 
-  int length = quotes.size();
-
+  const int length = quotes.size();
   print("length ", length);
 
-  check(length>0, "must supply non-empty array of quotes");
+  check(length > 0, "must supply non-empty array of quotes");
   check(check_oracle(owner), "account is not a qualified oracle");
 
   statstable stable(_self, _self.value);
@@ -32,16 +31,16 @@ ACTION delphioracle::write(const name owner, const std::vector<quote>& quotes) {
 
   auto oitr = stable.find(owner.value);
 
-  for (int i=0; i<length;i++){
+  for (int i = 0; i < length; i++) {
     print("quote ", i, " ", quotes[i].value, " ",  quotes[i].pair, "\n");
 
     auto itr = pairs.find(quotes[i].pair.value);
 
-    check(itr!=pairs.end() && itr->active == true, "pair not allowed");
+    check(itr != pairs.end() && itr->active == true, "pair not allowed");
 
     check_last_push(owner, quotes[i].pair);
 
-    if (itr->bounty_amount>=one_larimer && oitr != stable.end()){
+    if (itr->bounty_amount >= one_larimer && oitr != stable.end()) {
 
       //global donation to the contract, split between top oracles across all pairs
       stable.modify(*oitr, _self, [&]( auto& s ) {
@@ -52,26 +51,21 @@ ACTION delphioracle::write(const name owner, const std::vector<quote>& quotes) {
       pairs.modify(*itr, _self, [&]( auto& s ) {
         s.bounty_amount -= one_larimer;
       });
-
     }
-    else if (itr->bounty_awarded==false && itr->bounty_amount<one_larimer){
+    else if (itr->bounty_awarded == false && itr->bounty_amount < one_larimer)  {
 
       //global donation to the contract, split between top oracles across all pairs
       pairs.modify(*itr, _self, [&]( auto& s ) {
         s.bounty_awarded = true;
       });
-
     }
 
     update_datapoints(owner, quotes[i].value, itr);
-
   }
-
 }
 
 //claim rewards
 ACTION delphioracle::claim(name owner) {
-
   require_auth(owner);
 
   globaltable gtable(_self, _self.value);
@@ -100,12 +94,10 @@ ACTION delphioracle::claim(name owner) {
     std::make_tuple(_self, owner, payout, std::string(""))
   );
   act.send();
-
 }
 
 //temp configuration
 ACTION delphioracle::configure(globalinput g) {
-
   require_auth(_self);
 
   globaltable gtable(_self, _self.value);
@@ -114,8 +106,7 @@ ACTION delphioracle::configure(globalinput g) {
   auto gitr = gtable.begin();
   auto pitr = pairs.begin();
 
-  if (gitr == gtable.end()){
-
+  if (gitr == gtable.end()) {
     gtable.emplace(_self, [&](auto& o) {
       o.id = 1;
       o.total_datapoints_count = 0;
@@ -132,10 +123,7 @@ ACTION delphioracle::configure(globalinput g) {
       o.min_bounty_delay = g.min_bounty_delay;
       o.new_bounty_delay = g.new_bounty_delay;
     });
-
-  }
-  else {
-
+  } else {
     gtable.modify(*gitr, _self, [&]( auto& o ) {
       o.datapoints_per_instrument = g.datapoints_per_instrument;
       o.bars_per_instrument = g.bars_per_instrument;
@@ -149,11 +137,9 @@ ACTION delphioracle::configure(globalinput g) {
       o.min_bounty_delay = g.min_bounty_delay;
       o.new_bounty_delay = g.new_bounty_delay;
     });
-
   }
 
-  if (pitr == pairs.end()){
-
+  if (pitr == pairs.end()) {
       pairs.emplace(_self, [&](auto& o) {
         o.active = true;
         o.bounty_awarded = true;
@@ -174,9 +160,7 @@ ACTION delphioracle::configure(globalinput g) {
 
       //First data point starts at uint64 max
       uint64_t primary_key = 0;
-
-      for (uint16_t i=0; i < 21; i++){
-
+      for (uint16_t i = 0; i < 21; i++) {
         //Insert next datapoint
         auto c_itr = dstore.emplace(_self, [&](auto& s) {
           s.id = primary_key;
@@ -185,11 +169,8 @@ ACTION delphioracle::configure(globalinput g) {
         });
 
         primary_key++;
-
       }
-
   }
-
 }
 
 //Delphi Oracle - Bounty logic
@@ -219,7 +200,6 @@ ACTION delphioracle::configure(globalinput g) {
 
 //create a new pair request bounty
 ACTION delphioracle::newbounty(name proposer, pairinput pair) {
-
   require_auth(proposer);
 
   //Add request, proposer pays the RAM for the request + data structure for datapoints & bars.
@@ -246,9 +226,7 @@ ACTION delphioracle::newbounty(name proposer, pairinput pair) {
 
   //First data point starts at uint64 max
   uint64_t primary_key = 0;
-
-  for (uint16_t i=0; i < 21; i++){
-
+  for (uint16_t i = 0; i < 21; i++) {
     //Insert next datapoint
     auto c_itr = dstore.emplace(proposer, [&](auto& s) {
       s.id = primary_key;
@@ -257,19 +235,15 @@ ACTION delphioracle::newbounty(name proposer, pairinput pair) {
     });
 
     primary_key++;
-
   }
-
 }
 
 //cancel a bounty
 ACTION delphioracle::cancelbounty(name name, std::string reason) {
-
   pairstable pairs(_self, _self.value);
   datapointstable dstore(_self, name.value);
 
   auto itr = pairs.find(name.value);
-
   check(itr != pairs.end(), "bounty doesn't exist");
 
   print("itr->proposer", itr->proposer, "\n");
@@ -282,86 +256,71 @@ ACTION delphioracle::cancelbounty(name name, std::string reason) {
   pairs.erase(itr);
 
   while (dstore.begin() != dstore.end()) {
-      auto ditr = dstore.end();
-      ditr--;
-      dstore.erase(ditr);
+    auto ditr = dstore.end();
+    ditr--;
+    dstore.erase(ditr);
   }
-
   //TODO: Refund accumulated bounty to balance of user
-
 }
 
 //vote bounty
 ACTION delphioracle::votebounty(name owner, name bounty) {
-
   require_auth(owner);
 
   pairstable pairs(_self, _self.value);
-
   auto pitr = pairs.find(bounty.value);
 
   check(!pitr->active, "pair is already active.");
   check(pitr != pairs.end(), "bounty not found.");
 
   custodianstable custodians(_self, _self.value);
-
   auto itr = custodians.find(owner.value);
 
   bool vote_approved = false;
-
   std::string err_msg = "";
 
   //print("itr->name", itr->name, "\n");
 
-  if (itr != custodians.end()){
+  if (itr != custodians.end()) {
     //voter is custodian
     print("custodian found \n");
 
     std::vector<eosio::name> cv = pitr->approving_custodians;
-
     auto citr = find(cv.begin(), cv.end(), owner);
 
     //check(citr == cv.end(), "custodian already voting for bounty");
 
-    if (citr == cv.end()){
-
+    if (citr == cv.end()) {
       cv.push_back(owner);
-
       pairs.modify(*pitr, _self, [&]( auto& s ) {
         s.approving_custodians = cv;
       });
 
       print("custodian added vote \n");
 
-      vote_approved=true;
-
+      vote_approved = true;
     }
-    else err_msg = "custodian already voting for bounty";
-
+    else 
+      err_msg = "custodian already voting for bounty";
   }
 
   print("checking oracle qualification... \n");
 
   if (check_approver(owner)) {
-
     std::vector<eosio::name> ov = pitr->approving_oracles;
-
     auto oitr = find(ov.begin(), ov.end(), owner);
-
-    if (oitr == ov.end()){
-
+    if (oitr == ov.end()) {
       ov.push_back(owner);
-
       pairs.modify(*pitr, _self, [&]( auto& s ) {
         s.approving_oracles = ov;
       });
 
       print("oracle added vote \n");
 
-      vote_approved=true;
-
+      vote_approved = true;
     }
-    else err_msg = "oracle already voting for bounty";
+    else 
+      err_msg = "oracle already voting for bounty";
 
   }
   else err_msg = "owner not a qualified oracle";
@@ -369,51 +328,42 @@ ACTION delphioracle::votebounty(name owner, name bounty) {
   check(vote_approved, err_msg.c_str());
 
   globaltable gtable(_self, _self.value);
-
   auto gitr = gtable.begin();
 
   uint64_t approving_custodians_count = std::distance(pitr->approving_custodians.begin(), pitr->approving_custodians.end());
   uint64_t approving_oracles_count = std::distance(pitr->approving_oracles.begin(), pitr->approving_oracles.end());
 
-  if (approving_custodians_count>=gitr->approving_custodians_threshold && approving_oracles_count>=gitr->approving_oracles_threshold){
+  if (approving_custodians_count >= gitr->approving_custodians_threshold 
+    && approving_oracles_count >= gitr->approving_oracles_threshold) {
       print("activate bounty", "\n");
-
+      
       pairs.modify(*pitr, _self, [&]( auto& s ) {
         s.active = true;
       });
-
   }
-
 }
 
 //vote bounty
 ACTION delphioracle::unvotebounty(name owner, name bounty) {
-
   require_auth(owner);
 
   pairstable pairs(_self, _self.value);
-
   auto pitr = pairs.find(bounty.value);
 
   check(!pitr->active, "pair is already active.");
   check(pitr != pairs.end(), "bounty not found.");
 
   custodianstable custodians(_self, _self.value);
-
   auto itr = custodians.find(owner.value);
-
   print("itr->name", itr->name, "\n");
 
-  if (itr != custodians.end()){
+  if (itr != custodians.end()) {
     //voter is custodian
     print("custodian found \n");
 
     std::vector<eosio::name> cv = pitr->approving_custodians;
-
     auto citr = find(cv.begin(), cv.end(), owner);
-
     check(citr != cv.end(), "custodian is not voting for bounty");
-
     cv.erase(citr);
 
     pairs.modify(*pitr, _self, [&]( auto& s ) {
@@ -421,20 +371,14 @@ ACTION delphioracle::unvotebounty(name owner, name bounty) {
     });
 
     print("custodian removed vote \n");
-
-  }
-  else {
-
+  } else {
     print("checking oracle qualification... \n");
 
     //check(check_approver(owner), "owner not a qualified oracle"); // not necessary
 
     std::vector<eosio::name> ov = pitr->approving_oracles;
-
     auto oitr = find(ov.begin(), ov.end(), owner);
-
     check(oitr != ov.end(), "not an oracle or oracle is not voting for bounty");
-
     ov.erase(oitr);
 
     pairs.modify(*pitr, _self, [&]( auto& s ) {
@@ -442,60 +386,45 @@ ACTION delphioracle::unvotebounty(name owner, name bounty) {
     });
 
     print("oracle removed vote \n");
-
   }
-
 }
 
 //add custodian
 ACTION delphioracle::addcustodian(name name) {
-
   require_auth(_self);
 
   custodianstable custodians(_self, _self.value);
-
   custodians.emplace(_self, [&](auto& s) {
     s.name = name;
   });
-
-
 }
 
 //remove custodian
 ACTION delphioracle::delcustodian(name name) {
-
   require_auth(_self);
 
   custodianstable custodians(_self, _self.value);
-
   auto itr = custodians.find(name.value);
-
   check(itr != custodians.end(), "account not a custodian");
-
   custodians.erase(itr);
-
 }
 
 //registers a user
 ACTION delphioracle::reguser(name owner) {
-
   require_auth(owner);
-
-  if( !check_user(owner) ) create_user( owner );
-
+  if( !check_user(owner) ) 
+    create_user( owner );
 }
 
 //updates all users voting scores
 //run at some random interval daily
 ACTION delphioracle::updateusers() {
-
   require_auth( _self );
 
   userstable users(_self, _self.value);
   voters_table vtable("eosio"_n, name("eosio").value);
 
   for(auto itr = users.begin(); itr != users.end(); ++itr) {
-
     // add proxy score
     auto v_itr = vtable.find(itr->name.value);
     auto score = itr->score;
@@ -507,14 +436,11 @@ ACTION delphioracle::updateusers() {
     users.modify(*itr, _self, [&]( auto& o ) {
       o.score = score;
     });
-
   }
-
 }
 
 //Clear all data
 ACTION delphioracle::clear(name pair) {
-
   require_auth(_self);
 
   globaltable gtable(_self, _self.value);
@@ -562,7 +488,6 @@ ACTION delphioracle::clear(name pair) {
 }
 
 ACTION delphioracle::voteabuser(const name owner, const name abuser) {
-
   require_auth(owner);
   check(check_oracle(abuser), "abuser is not a qualified oracle");
 
@@ -574,7 +499,6 @@ ACTION delphioracle::voteabuser(const name owner, const name abuser) {
   auto d_itr = d_idx.find(owner.value);
 
   auto total_donated = 0;
-
   while (d_itr->donator == owner && d_itr != d_idx.end()) {
     total_donated += d_itr->amount.amount;
     d_itr++;
@@ -584,16 +508,12 @@ ACTION delphioracle::voteabuser(const name owner, const name abuser) {
 
   // proxy voting
   auto total_proxied = 0;
-
   if( v_itr != vtable.end() && v_itr->proxy == _self) {
     total_proxied += v_itr->staked;
   }
 
   // TODO: verify user object exists and user has some voting score
   check(total_donated > 0 || total_proxied > 0, "user must donate or proxy vote to delphioracle to vote for abusers");
-
   print("user: ", owner, " is voting for abuser: ", abuser, " with total stake: ", total_donated + total_proxied);
-
   // store data for abuse vote
-
 }
