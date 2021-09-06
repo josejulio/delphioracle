@@ -19,6 +19,7 @@
 #include <eosio/asset.hpp>
 #include <eosio/crypto.hpp>
 #include <eosio/system.hpp>
+#include <eosio/producer_schedule.hpp>
 #include <math.h>
 
 using namespace eosio;
@@ -36,17 +37,15 @@ CONTRACT delphioracle : public eosio::contract {
  	using contract::contract;
 
   //Types
-
   enum e_asset_type: uint16_t {
-      fiat=1,
-      cryptocurrency=2,
-      erc20_token=3,
-      eosio_token=4,
-      equity=5,
-      derivative=6,
-      other=7
+      fiat = 1,
+      cryptocurrency = 2,
+      erc20_token = 3,
+      eosio_token = 4,
+      equity = 5,
+      derivative = 6,
+      other = 7,
   };
-
   typedef uint16_t asset_type;
 
   struct globalinput {
@@ -82,8 +81,8 @@ CONTRACT delphioracle : public eosio::contract {
 
   struct producer_info {
     name                  owner;
-    double                total_votes = 0;
-    eosio::public_key     producer_key; /// a packed public key object
+    double                total_votes = 0.f;
+    public_key            producer_key; /// a packed public key object
     bool                  is_active = true;
     std::string           url;
     uint32_t              unpaid_blocks = 0;
@@ -100,14 +99,12 @@ CONTRACT delphioracle : public eosio::contract {
   struct st_transfer {
       name  from;
       name  to;
-      asset         quantity;
-      std::string   memo;
+      asset quantity;
+      std::string memo;
   };
-
 
   //Global config
   TABLE global {
-
     //variables
     uint64_t id;
     uint64_t total_datapoints_count;
@@ -126,8 +123,7 @@ CONTRACT delphioracle : public eosio::contract {
     uint64_t min_bounty_delay = 604800;
     uint64_t new_bounty_delay = 259200;
 
-    uint64_t primary_key() const {return id;}
-
+    uint64_t primary_key() const { return id; }
   };
 
   TABLE oglobal {
@@ -135,7 +131,7 @@ CONTRACT delphioracle : public eosio::contract {
     uint64_t total_datapoints_count;
     //asset total_claimed;
 
-    uint64_t primary_key() const {return id;}
+    uint64_t primary_key() const { return id; }
   };
 
   //Holds the last datapoints_count datapoints from qualified oracles
@@ -146,10 +142,9 @@ CONTRACT delphioracle : public eosio::contract {
     uint64_t median;
     time_point timestamp;
 
-    uint64_t primary_key() const {return id;}
-    uint64_t by_timestamp() const {return timestamp.elapsed.to_seconds();}
-    uint64_t by_value() const {return value;}
-
+    uint64_t primary_key() const { return id; }
+    uint64_t by_timestamp() const { return timestamp.elapsed.to_seconds(); }
+    uint64_t by_value() const { return value; }
   };
 
   //Holds the last hashes from qualified oracles
@@ -161,10 +156,10 @@ CONTRACT delphioracle : public eosio::contract {
     std::string reveal;
     time_point timestamp;
 
-    uint64_t primary_key() const {return id;}
-    uint64_t by_timestamp() const {return timestamp.elapsed.to_seconds();}
-    uint64_t by_owner() const {return owner.value;}
-    checksum256 by_hash() const {return hash;}
+    uint64_t primary_key() const { return id; }
+    uint64_t by_timestamp() const { return timestamp.elapsed.to_seconds(); }
+    uint64_t by_owner() const {return owner.value; }
+    checksum256 by_hash() const { return hash; }
   };
 
   //Holds the count and time of last writes for qualified oracles
@@ -175,61 +170,50 @@ CONTRACT delphioracle : public eosio::contract {
     time_point last_claim;
     asset balance;
 
-    uint64_t primary_key() const {return owner.value;}
-    uint64_t by_count() const {return -count;}
-
+    uint64_t primary_key() const { return owner.value; }
+    uint64_t by_count() const { return -count; }
   };
 
   //Holds rewards information
   TABLE donations {
-
     uint64_t id;
-
     name donator;
     name pair;
     time_point timestamp;
     asset amount;
 
-    uint64_t primary_key() const {return id;}
-    uint64_t by_donator() const {return donator.value;}
-
+    uint64_t primary_key() const { return id; }
+    uint64_t by_donator() const { return donator.value; }
   };
 
   //Holds users information
   TABLE users {
-
     name name;
     asset contribution;
     uint64_t score;
     time_point creation_timestamp;
 
-    uint64_t primary_key() const {return name.value;}
-    uint64_t by_score() const {return score;}
-
+    uint64_t primary_key() const { return name.value; }
+    uint64_t by_score() const { return score; }
   };
 
   TABLE abusers {
-
     name name;
     uint64_t votes;
 
-    uint64_t primary_key() const {return name.value;}
-    uint64_t by_votes() const {return votes;}
-
+    uint64_t primary_key() const { return name.value; }
+    uint64_t by_votes() const { return votes; }
   };
 
   //Holds custodians information
   TABLE custodians {
-
     name name;
 
-    uint64_t primary_key() const {return name.value;}
-
+    uint64_t primary_key() const { return name.value; }
   };
 
   //Holds the list of pairs
   TABLE pairs {
-
     bool active = false;
     bool bounty_awarded = false;
     bool bounty_edited_by_custodians = false;
@@ -252,46 +236,45 @@ CONTRACT delphioracle : public eosio::contract {
 
     uint64_t quoted_precision;
 
-    uint64_t primary_key() const {return name.value;}
-
+    uint64_t primary_key() const { return name.value; }
   };
 
-   TABLE voter_info {
-      name                owner;     /// the voter
-      name                proxy;     /// the proxy set by the voter, if any
-      std::vector<name>   producers; /// the producers approved by this voter if no proxy set
-      int64_t             staked = 0;
+  TABLE voter_info {
+    name                owner;     /// the voter
+    name                proxy;     /// the proxy set by the voter, if any
+    std::vector<name>   producers; /// the producers approved by this voter if no proxy set
+    int64_t             staked = 0;
 
-      /**
-       *  Every time a vote is cast we must first "undo" the last vote weight, before casting the
-       *  new vote weight.  Vote weight is calculated as:
-       *
-       *  stated.amount * 2 ^ ( weeks_since_launch/weeks_per_year)
-       */
-      double              last_vote_weight = 0; /// the vote weight cast the last time the vote was updated
+    /**
+     *  Every time a vote is cast we must first "undo" the last vote weight, before casting the
+     *  new vote weight.  Vote weight is calculated as:
+     *
+     *  stated.amount * 2 ^ ( weeks_since_launch/weeks_per_year)
+     */
+    double              last_vote_weight = 0; /// the vote weight cast the last time the vote was updated
 
-      /**
-       * Total vote weight delegated to this voter.
-       */
-      double              proxied_vote_weight= 0; /// the total vote weight delegated to this voter as a proxy
-      bool                is_proxy = 0; /// whether the voter is a proxy for others
+    /**
+     * Total vote weight delegated to this voter.
+     */
+    double              proxied_vote_weight= 0; /// the total vote weight delegated to this voter as a proxy
+    bool                is_proxy = 0; /// whether the voter is a proxy for others
 
 
-      uint32_t            flags1 = 0;
-      uint32_t            reserved2 = 0;
-      eosio::asset        reserved3;
+    uint32_t            flags1 = 0;
+    uint32_t            reserved2 = 0;
+    asset               reserved3;
 
-      uint64_t primary_key()const { return owner.value; }
+    uint64_t primary_key() const { return owner.value; }
 
-      enum class flags1_fields : uint32_t {
-         ram_managed = 1,
-         net_managed = 2,
-         cpu_managed = 4
-      };
+    enum class flags1_fields : uint32_t {
+      ram_managed = 1,
+      net_managed = 2,
+      cpu_managed = 4
+    };
 
-      // explicit serialization macro is not necessary, used here only to improve compilation time
-      EOSLIB_SERIALIZE( voter_info, (owner)(proxy)(producers)(staked)(last_vote_weight)(proxied_vote_weight)(is_proxy)(flags1)(reserved2)(reserved3) )
-   };
+    // explicit serialization macro is not necessary, used here only to improve compilation time
+    // EOSLIB_SERIALIZE( voter_info, (owner)(proxy)(producers)(staked)(last_vote_weight)(proxied_vote_weight)(is_proxy)(flags1)(reserved2)(reserved3) )
+  };
 
   //Multi index types definition
   typedef eosio::multi_index<"global"_n, global> globaltable;
@@ -347,18 +330,16 @@ CONTRACT delphioracle : public eosio::contract {
 
   [[eosio::on_notify("eosio.token::transfer")]]
   void transfer(uint64_t sender, uint64_t receiver) {
-
     print("transfer notifier", "\n");
-
+    
     auto transfer_data = unpack_action_data<delphioracle::st_transfer>();
-
     print("transfer ", name{transfer_data.from}, " ",  name{transfer_data.to}, " ", transfer_data.quantity, "\n");
 
     //if incoming transfer
     if (transfer_data.from != _self && transfer_data.to == _self) {
-        pairstable pairs(_self, _self.value);
-        if (transfer_data.memo == system_str )
-          return; //transfer to system account
+      pairstable pairs(_self, _self.value);
+      if (transfer_data.memo == system_str )
+        return; //transfer to system account
 
       auto itr = pairs.find(name(transfer_data.memo).value);
       if (itr != pairs.end() && itr->bounty_awarded == true )
@@ -388,72 +369,59 @@ CONTRACT delphioracle : public eosio::contract {
 private:
   //Check if calling account is a qualified oracle
   bool check_oracle(const name owner) {
-
     globaltable gtable(_self, _self.value);
-    producers_table ptable("eosio"_n, name("eosio").value);
-
     auto gitr = gtable.begin();
-
+    
+    producers_table ptable("eosio"_n, name("eosio").value);
     auto p_idx = ptable.get_index<"prototalvote"_n>();
-
     auto p_itr = p_idx.begin();
 
     uint64_t count = 0;
+    while ( p_itr != p_idx.end() ) {
+      if (p_itr->owner == owner) 
+        return true;
 
-    while (p_itr != p_idx.end()) {
-      if (p_itr->owner==owner) return true;
       p_itr++;
       count++;
-      if (count>gitr->minimum_rank) break;
+
+      if (count > gitr->minimum_rank) 
+        break;
     }
 
     return false;
   }
 
   //Check if calling account is can vote on bounties
-  bool check_approver(const name owner){
-
+  bool check_approver(const name owner) {
     globaltable gtable(_self, _self.value);
     statstable stats(_self, _self.value);
 
     auto gitr = gtable.begin();
     auto itr = stats.find(owner.value);
 
-    if (gitr->approver_threshold == 0) return true;
-    else if (itr != stats.end() && itr->count >= gitr->approver_threshold) return true;
-    else return false;
-
+    return (gitr->approver_threshold == 0) || (itr != stats.end() && itr->count >= gitr->approver_threshold);
   }
 
-  bool check_user(const name owner){
-
+  bool check_user(const name owner) {
     userstable utable(_self, _self.value);
-
     auto user = utable.find(owner.value);
-
-    if (user != utable.end()) return true;
-    else return false;
-
+    return user != utable.end();
   }
 
   //Ensure account cannot push data more often than every 60 seconds
-  void check_last_push(const name owner, const name pair){
-
+  void check_last_push(const name owner, const name pair) {
     globaltable gtable(_self, _self.value);
     statstable gstore(_self, _self.value);
     statstable store(_self, pair.value);
 
     auto gitr = gtable.begin();
     auto itr = store.find(owner.value);
-
     if (itr != store.end()) {
-
       time_point ctime = current_time_point();
       auto last = store.get(owner.value);
 
       time_point next_push = eosio::time_point(last.timestamp.elapsed + eosio::microseconds(gitr->write_cooldown));
-
-      check(ctime>=next_push, "can only call every 60 seconds");
+      check(ctime >= next_push, "can only call every 60 seconds");
 
       store.modify( itr, _self, [&]( auto& s ) {
         s.timestamp = ctime;
@@ -461,7 +429,6 @@ private:
       });
 
     } else {
-
       store.emplace(_self, [&](auto& s) {
         s.owner = owner;
         s.timestamp = current_time_point();
@@ -469,21 +436,16 @@ private:
         s.balance = asset(0, symbol("TLOS", 4));
         s.last_claim = NULL_TIME_POINT;
       });
-
     }
 
     auto gsitr = gstore.find(owner.value);
     if (gsitr != gstore.end()) {
-
       time_point ctime = current_time_point();
-
       gstore.modify( gsitr, _self, [&]( auto& s ) {
         s.timestamp = ctime;
         s.count++;
       });
-
     } else {
-
       gstore.emplace(_self, [&](auto& s) {
         s.owner = owner;
         s.timestamp = current_time_point();
@@ -491,13 +453,10 @@ private:
         s.balance = asset(0, symbol("TLOS", 4));
         s.last_claim = NULL_TIME_POINT;
       });
-
     }
-
   }
 
-  void update_votes(){
-
+  void update_votes() {
     print("voting for bps:", "\n");
 
     std::vector<eosio::name> bps;
@@ -508,9 +467,9 @@ private:
     auto itr = sorted_idx.begin();
 
     uint64_t count = 0;
-
-    while(itr != sorted_idx.end() && count<30){
+    while(itr != sorted_idx.end() && count < 30) {
       print(itr->owner, "\n");
+      
       if(check_oracle(itr->owner) == true) {
         bps.push_back(itr->owner);
         count++;
@@ -527,7 +486,6 @@ private:
       std::make_tuple(_self, ""_n, bps)
     );
     act.send();
-
   }
 
   //Push oracle message on top of queue, pop oldest element if queue size is larger than datapoints_count
@@ -606,11 +564,8 @@ private:
   //The bounty is then paid at a rate of X larimers per datapoint to BPs contributing to it until it runs out.
 
   void create_user(name owner) {
-
     userstable users(_self, _self.value);
-
     auto itr = users.find(owner.value);
-
     if( itr == users.end() ) {
       users.emplace(_self, [&](auto& o) {
         o.name = owner;
@@ -618,22 +573,19 @@ private:
         o.creation_timestamp = current_time_point();
       });
     }
-
   }
 
   void process_donation(name from, name scope, asset quantity) {
-
     globaltable gtable(_self, _self.value);
     statstable cstore(_self, scope.value);
     donationstable donations(_self, from.value);
     userstable users(_self, _self.value);
 
     auto uitr = users.find(from.value);
-
-    if( uitr == users.end() ) create_user( from );
+    if ( uitr == users.end() ) 
+      create_user( from );
 
     uitr = users.find(from.value);
-
     users.modify(*uitr, _self, [&]( auto& o) {
       o.score += quantity.amount;
     });
@@ -652,38 +604,29 @@ private:
     uint64_t size = std::distance(cstore.begin(), cstore.end());
 
     uint64_t upperbound = std::min(size, gitr->paid); //max number of oracles being paid
-
-    auto count_index = cstore.get_index<"count"_n>(); //get list of oracles ranked by number of datapoints contributed for this scope (descending)
-
-    auto itr = count_index.begin();
-
-    uint64_t total_datapoints = 0; //gitr->total_datapoints_count;
-
     print("upperbound", upperbound, "\n");
 
-    //Move pointer to upperbound, counting total number of datapoints for oracles elligible for payout
-    for (uint64_t i=1;i<=upperbound;i++){
-      total_datapoints+=itr->count;
+    auto count_index = cstore.get_index<"count"_n>(); //get list of oracles ranked by number of datapoints contributed for this scope (descending)
+    auto itr = count_index.begin();
+    uint64_t total_datapoints = 0; //gitr->total_datapoints_count;
 
-      if (i<upperbound ){
+    //Move pointer to upperbound, counting total number of datapoints for oracles elligible for payout
+    for (uint64_t i = 1; i <= upperbound; i++) {
+      total_datapoints+=itr->count;
+      if ( i<upperbound ) {
         itr++;
         print("increment 1", "\n");
-
       }
-
     }
 
     print("total_datapoints", total_datapoints, "\n"); //total datapoints for the eligible contributors
 
     uint64_t amount = quantity.amount;
-
     //Move pointer back to 0, calculating prorated contribution of oracle and allocating proportion of donation
-    for (uint64_t i=upperbound;i>=1;i--){
-
+    for (uint64_t i = upperbound; i >= 1; i--) {
       uint64_t datapoints = itr->count;
-
-      double percent = ((double)datapoints / (double)total_datapoints) ;
-      uint64_t uquota = (uint64_t)(percent * (double)quantity.amount) ;
+      double percent = ((double)datapoints / (double)total_datapoints);
+      uint64_t uquota = (uint64_t)(percent * (double)quantity.amount);
 
       print("itr->owner", itr->owner, "\n");
       print("datapoints", datapoints, "\n");
@@ -691,60 +634,48 @@ private:
       print("uquota", uquota, "\n");
 
       asset payout;
-
       //avoid rounding issues by giving leftovers to top contributor
-      if (i == 1){
+      if (i == 1) {
         payout = asset(amount, symbol("TLOS", 4));
-      }
-      else {
+      } else {
         payout = asset(uquota, symbol("TLOS", 4));
       }
 
       amount-= uquota;
-
       print("payout", payout, "\n");
 
       if (scope == _self) {
-
         //global donation to the contract, split between top oracles across all pairs
         cstore.modify(*itr, _self, [&]( auto& s ) {
           s.balance += payout;
         });
-
-      }
-      else {
-
+      } else {
         //donation to a specific pair, split between top oracles of only that pair
         statstable gstore(_self, _self.value);
-
         auto optr = gstore.find(itr->owner.value);
-
         gstore.modify(*optr, _self, [&]( auto& s ) {
           s.balance += payout;
         });
-
       }
 
-      if (i>1 ){
+      if ( i>1 ) {
         itr--;
         print("decrement 1", "\n");
-
       }
     }
-
-
   }
 
-  void process_bounty(name from, name pair, asset quantity){
-
+  void process_bounty(name from, name pair, asset quantity) {
     pairstable pairs(_self, _self.value);
-
     auto pitr = pairs.find(pair.value);
-
     pairs.modify(*pitr, _self, [&]( auto& s ) {
       s.bounty_amount += quantity;
     });
-
   }
 
+  void check_active_producer(const name& producer) {
+    const auto& producers = get_active_producers();
+    auto result = std::find(producers.begin(), producers.end(), producer);
+    check(result != producers.end(), "don't active producer");
+  }
 };
