@@ -79,22 +79,36 @@ CONTRACT delphioracle : public eosio::contract {
     name pair;
   };
 
-  struct producer_info {
-    name                  owner;
-    double                total_votes = 0.f;
-    public_key            producer_key; /// a packed public key object
-    bool                  is_active = true;
-    std::string           url;
-    uint32_t              unpaid_blocks = 0;
-    time_point            last_claim_time;
-    uint16_t              location = 0;
+   struct [[eosio::table, eosio::contract("eosio.system")]] producer_info {
+      name                  owner;
+      double                total_votes = 0;
+      eosio::public_key     producer_key; /// a packed public key object
+      bool                  is_active = true;
+      std::string           unreg_reason;
+      std::string           url;
+      uint32_t              unpaid_blocks = 0;
+      uint32_t              lifetime_produced_blocks = 0;
+      uint32_t              missed_blocks_per_rotation = 0;
+      uint32_t              lifetime_missed_blocks = 0;
+      time_point            last_claim_time;
+      uint16_t              location = 0;
 
-    uint64_t primary_key()const { return owner.value;                             }
-    double   by_votes()const    { return is_active ? -total_votes : total_votes;  }
-    bool     active()const      { return is_active;                               }
-    //void     deactivate()       { producer_key = public_key(); is_active = false; }
+      uint32_t              kick_reason_id = 0;
+      std::string           kick_reason;
+      uint32_t              times_kicked = 0;
+      uint32_t              kick_penalty_hours = 0;
+      block_timestamp       last_time_kicked;
 
-  };
+      uint64_t primary_key()const { return owner.value;                             }
+      double   by_votes()const    { return is_active ? -total_votes : total_votes;  }
+      bool     active()const      { return is_active;                               }
+      void     deactivate()       { producer_key = public_key(); is_active = false; }
+
+      // explicit serialization macro is not necessary, used here only to improve compilation time
+      EOSLIB_SERIALIZE( producer_info, (owner)(total_votes)(producer_key)(is_active)(unreg_reason)(url)
+                        (unpaid_blocks)(lifetime_produced_blocks)(missed_blocks_per_rotation)(lifetime_missed_blocks)(last_claim_time)
+                        (location)(kick_reason_id)(kick_reason)(times_kicked)(kick_penalty_hours)(last_time_kicked) )
+   };
 
   struct st_transfer {
       name  from;
@@ -330,10 +344,10 @@ CONTRACT delphioracle : public eosio::contract {
 
   [[eosio::on_notify("eosio.token::transfer")]]
   void transfer(uint64_t sender, uint64_t receiver) {
-    print("transfer notifier", "\n");
+    //print("transfer notifier", "\n");
     
     auto transfer_data = unpack_action_data<delphioracle::st_transfer>();
-    print("transfer ", name{transfer_data.from}, " ",  name{transfer_data.to}, " ", transfer_data.quantity, "\n");
+    //print("transfer ", name{transfer_data.from}, " ",  name{transfer_data.to}, " ", transfer_data.quantity, "\n");
 
     //if incoming transfer
     if (transfer_data.from != _self && transfer_data.to == _self) {
@@ -371,6 +385,7 @@ private:
   bool check_oracle(const name owner) {
     globaltable gtable(_self, _self.value);
     auto gitr = gtable.begin();
+    //print("Checking oracle: ", owner, "\n");
     
     producers_table ptable("eosio"_n, name("eosio").value);
     auto p_idx = ptable.get_index<"prototalvote"_n>();
@@ -378,8 +393,9 @@ private:
 
     uint64_t count = 0;
     while ( p_itr != p_idx.end() ) {
-      if (p_itr->owner == owner) 
-        return true;
+      if (p_itr->owner == owner) {
+        return p_itr->active();
+      }
 
       p_itr++;
       count++;
@@ -457,7 +473,7 @@ private:
   }
 
   void update_votes() {
-    print("voting for bps:", "\n");
+    //print("voting for bps:", "\n");
 
     std::vector<eosio::name> bps;
 
@@ -468,7 +484,7 @@ private:
 
     uint64_t count = 0;
     while(itr != sorted_idx.end() && count < 30) {
-      print(itr->owner, "\n");
+      //print(itr->owner, "\n");
       
       if(check_oracle(itr->owner) == true) {
         bps.push_back(itr->owner);
@@ -533,7 +549,7 @@ private:
     });
 
     auto gitr = gtable.begin();
-    print("gtable.begin()->total_datapoints_count:", gitr->total_datapoints_count,  "\n");
+    //print("gtable.begin()->total_datapoints_count:", gitr->total_datapoints_count,  "\n");
 
     if (gtable.begin()->total_datapoints_count % gitr->vote_interval == 0)
       update_votes();
@@ -604,7 +620,7 @@ private:
     uint64_t size = std::distance(cstore.begin(), cstore.end());
 
     uint64_t upperbound = std::min(size, gitr->paid); //max number of oracles being paid
-    print("upperbound", upperbound, "\n");
+    //print("upperbound", upperbound, "\n");
 
     auto count_index = cstore.get_index<"count"_n>(); //get list of oracles ranked by number of datapoints contributed for this scope (descending)
     auto itr = count_index.begin();
@@ -615,11 +631,11 @@ private:
       total_datapoints+=itr->count;
       if ( i<upperbound ) {
         itr++;
-        print("increment 1", "\n");
+        //print("increment 1", "\n");
       }
     }
 
-    print("total_datapoints", total_datapoints, "\n"); //total datapoints for the eligible contributors
+    //print("total_datapoints", total_datapoints, "\n"); //total datapoints for the eligible contributors
 
     uint64_t amount = quantity.amount;
     //Move pointer back to 0, calculating prorated contribution of oracle and allocating proportion of donation
@@ -628,10 +644,10 @@ private:
       double percent = ((double)datapoints / (double)total_datapoints);
       uint64_t uquota = (uint64_t)(percent * (double)quantity.amount);
 
-      print("itr->owner", itr->owner, "\n");
-      print("datapoints", datapoints, "\n");
-      print("percent", percent, "\n");
-      print("uquota", uquota, "\n");
+      //print("itr->owner", itr->owner, "\n");
+      //print("datapoints", datapoints, "\n");
+      //print("percent", percent, "\n");
+      //print("uquota", uquota, "\n");
 
       asset payout;
       //avoid rounding issues by giving leftovers to top contributor
@@ -642,7 +658,7 @@ private:
       }
 
       amount-= uquota;
-      print("payout", payout, "\n");
+      //print("payout", payout, "\n");
 
       if (scope == _self) {
         //global donation to the contract, split between top oracles across all pairs
@@ -660,7 +676,7 @@ private:
 
       if ( i>1 ) {
         itr--;
-        print("decrement 1", "\n");
+        //print("decrement 1", "\n");
       }
     }
   }

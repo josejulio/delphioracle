@@ -21,18 +21,20 @@ ACTION delphioracle::write(const name owner, const std::vector<quote>& quotes) {
   check_active_producer(owner);
 
   const int length = quotes.size();
-  print("length ", length);
+  //print("quotes length ", length, "\n");
 
   check(length > 0, "must supply non-empty array of quotes");
   check(check_oracle(owner), "account is not a qualified oracle");
+  //print("Oracle passed check_oracle");
 
   statstable stable(_self, _self.value);
   pairstable pairs(_self, _self.value);
 
   auto oitr = stable.find(owner.value);
+  //print("Found the stable for owner.value");
 
   for (int i = 0; i < length; i++) {
-    print("quote ", i, " ", quotes[i].value, " ",  quotes[i].pair, "\n");
+    //print("quote ", i, " ", quotes[i].value, " ",  quotes[i].pair, "\n");
 
     auto itr = pairs.find(quotes[i].pair.value);
 
@@ -246,7 +248,7 @@ ACTION delphioracle::cancelbounty(name name, std::string reason) {
   auto itr = pairs.find(name.value);
   check(itr != pairs.end(), "bounty doesn't exist");
 
-  print("itr->proposer", itr->proposer, "\n");
+  //print("itr->proposer", itr->proposer, "\n");
 
   check(has_auth(_self) || has_auth(itr->proposer), "missing required authority of contract or proposer");
   check(itr->active == false, "cannot cancel live pair");
@@ -283,7 +285,7 @@ ACTION delphioracle::votebounty(name owner, name bounty) {
 
   if (itr != custodians.end()) {
     //voter is custodian
-    print("custodian found \n");
+    //print("custodian found \n");
 
     std::vector<eosio::name> cv = pitr->approving_custodians;
     auto citr = find(cv.begin(), cv.end(), owner);
@@ -296,7 +298,7 @@ ACTION delphioracle::votebounty(name owner, name bounty) {
         s.approving_custodians = cv;
       });
 
-      print("custodian added vote \n");
+      //print("custodian added vote \n");
 
       vote_approved = true;
     }
@@ -304,7 +306,7 @@ ACTION delphioracle::votebounty(name owner, name bounty) {
       err_msg = "custodian already voting for bounty";
   }
 
-  print("checking oracle qualification... \n");
+  //print("checking oracle qualification... \n");
 
   if (check_approver(owner)) {
     std::vector<eosio::name> ov = pitr->approving_oracles;
@@ -315,7 +317,7 @@ ACTION delphioracle::votebounty(name owner, name bounty) {
         s.approving_oracles = ov;
       });
 
-      print("oracle added vote \n");
+      //print("oracle added vote \n");
 
       vote_approved = true;
     }
@@ -335,7 +337,7 @@ ACTION delphioracle::votebounty(name owner, name bounty) {
 
   if (approving_custodians_count >= gitr->approving_custodians_threshold 
     && approving_oracles_count >= gitr->approving_oracles_threshold) {
-      print("activate bounty", "\n");
+      //print("activate bounty", "\n");
       
       pairs.modify(*pitr, _self, [&]( auto& s ) {
         s.active = true;
@@ -355,11 +357,11 @@ ACTION delphioracle::unvotebounty(name owner, name bounty) {
 
   custodianstable custodians(_self, _self.value);
   auto itr = custodians.find(owner.value);
-  print("itr->name", itr->name, "\n");
+  //print("itr->name", itr->name, "\n");
 
   if (itr != custodians.end()) {
     //voter is custodian
-    print("custodian found \n");
+    //print("custodian found \n");
 
     std::vector<eosio::name> cv = pitr->approving_custodians;
     auto citr = find(cv.begin(), cv.end(), owner);
@@ -370,9 +372,9 @@ ACTION delphioracle::unvotebounty(name owner, name bounty) {
       s.approving_oracles = cv;
     });
 
-    print("custodian removed vote \n");
+    //print("custodian removed vote \n");
   } else {
-    print("checking oracle qualification... \n");
+    //print("checking oracle qualification... \n");
 
     //check(check_approver(owner), "owner not a qualified oracle"); // not necessary
 
@@ -385,7 +387,7 @@ ACTION delphioracle::unvotebounty(name owner, name bounty) {
       s.approving_oracles = ov;
     });
 
-    print("oracle removed vote \n");
+    //print("oracle removed vote \n");
   }
 }
 
@@ -514,6 +516,6 @@ ACTION delphioracle::voteabuser(const name owner, const name abuser) {
 
   // TODO: verify user object exists and user has some voting score
   check(total_donated > 0 || total_proxied > 0, "user must donate or proxy vote to delphioracle to vote for abusers");
-  print("user: ", owner, " is voting for abuser: ", abuser, " with total stake: ", total_donated + total_proxied);
+  //print("user: ", owner, " is voting for abuser: ", abuser, " with total stake: ", total_donated + total_proxied);
   // store data for abuse vote
 }
