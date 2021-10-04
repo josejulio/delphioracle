@@ -36,10 +36,11 @@ ACTION delphioracle::write(const name owner, const std::vector<quote>& quotes) {
   require_auth(owner);
 
   const int length = quotes.size();
-  // print("length ", length, "; ");
+  //print("quotes length ", length, "\n");
 
   check(length > 0, "must supply non-empty array of quotes");
   check(check_oracle(owner), "account is not a qualified oracle");
+  //print("Oracle passed check_oracle");
 
   statstable stable(_self, _self.value);
   pairstable pairs(_self, _self.value);
@@ -76,7 +77,7 @@ ACTION delphioracle::write(const name owner, const std::vector<quote>& quotes) {
       });
     }
 
-    // update_datapoints(owner, quotes[i].value, itr);
+    update_datapoints(owner, quotes[i].value, itr);
     update_medians(owner, quotes[i].value, itr);
   }
 }
@@ -672,16 +673,8 @@ void delphioracle::update_medians_by_types(median_types type, const name& owner,
     if (low_medians_index != low_medians_elements.end()) {
       auto medians_table_index = medians_table.find(low_medians_index->id);
       medians_table.modify(medians_table_index, owner, [&](medians &obj) {        
-        print(" id: "); print(obj.id); print(";");
-        print(" value: "); print(obj.value);
         obj.value += median_value;
-        print("->"); print(obj.value);
-        print(";");
-        
-        print(" request_count: "); print(obj.request_count);
         obj.request_count += median_request_count;
-        print("->"); print(obj.request_count);
-        print(";");
       });
     } else {
       auto update_itr = medians_table.find(low_medians_elements.begin()->id);
@@ -705,16 +698,8 @@ void delphioracle::update_medians_by_types(median_types type, const name& owner,
       }
 
       medians_table.modify(*update_itr, owner, [&](medians &obj) {
-        print(" id: "); print(obj.id); print(";");
-        print(" value: "); print(obj.value);
         obj.value = median_value;
-        print("->"); print(obj.value);
-        print(";");
-        
-        print(" request_count: "); print(obj.request_count);
         obj.request_count = median_request_count;
-        print("->"); print(obj.request_count);
-        print(";");
         obj.timestamp = get_round_up_current_time(type);
       });
 
