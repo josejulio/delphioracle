@@ -689,9 +689,4 @@ private:
     });
   }
 
-  void check_active_producer(const name& producer) {
-    const auto& producers = get_active_producers();
-    auto result = std::find(producers.begin(), producers.end(), producer);
-    check(result != producers.end(), "don't active producer");
-  }
 };

@@ -18,7 +18,6 @@
 //Write datapoint
 ACTION delphioracle::write(const name owner, const std::vector<quote>& quotes) {
   require_auth(owner);
-  check_active_producer(owner);
 
   const int length = quotes.size();
   //print("quotes length ", length, "\n");
