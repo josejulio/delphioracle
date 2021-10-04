@@ -14,6 +14,22 @@
 */
 
 #include <delphioracle.hpp>
+#include <map>
+#include <algorithm>
+
+namespace {
+  const std::map<median_types, uint8_t> limits = {
+    {median_types::day, 1},
+    {median_types::week, 4},
+    {median_types::month, 12}
+  };
+
+    const std::map<median_types, uint32_t> time_consts = {
+    {median_types::day, 86400},
+    {median_types::week, 86400 * 7},
+    {median_types::month, 86400 * 7 * 4}
+  };
+}
 
 //Write datapoint
 ACTION delphioracle::write(const name owner, const std::vector<quote>& quotes) {
@@ -62,6 +78,7 @@ ACTION delphioracle::write(const name owner, const std::vector<quote>& quotes) {
     }
 
     update_datapoints(owner, quotes[i].value, itr);
+    update_medians(owner, quotes[i].value, itr);
   }
 }
 
@@ -171,6 +188,12 @@ ACTION delphioracle::configure(globalinput g) {
 
         primary_key++;
       }
+
+      {
+        make_records_for_medians_table(median_types::day, "tlosusd"_n, get_self());
+        make_records_for_medians_table(median_types::week, "tlosusd"_n, get_self());
+        make_records_for_medians_table(median_types::month, "tlosusd"_n, get_self());
+      }
   }
 }
 
@@ -237,6 +260,12 @@ ACTION delphioracle::newbounty(name proposer, pairinput pair) {
 
     primary_key++;
   }
+
+  { // for get medians
+    make_records_for_medians_table(median_types::day, pair.name, proposer);
+    make_records_for_medians_table(median_types::week, pair.name, proposer);
+    make_records_for_medians_table(median_types::month, pair.name, proposer);
+  }
 }
 
 //cancel a bounty
@@ -262,6 +291,8 @@ ACTION delphioracle::cancelbounty(name name, std::string reason) {
     dstore.erase(ditr);
   }
   //TODO: Refund accumulated bounty to balance of user
+
+  erase_medians(name);
 }
 
 //vote bounty
@@ -517,4 +548,192 @@ ACTION delphioracle::voteabuser(const name owner, const name abuser) {
   check(total_donated > 0 || total_proxied > 0, "user must donate or proxy vote to delphioracle to vote for abusers");
   //print("user: ", owner, " is voting for abuser: ", abuser, " with total stake: ", total_donated + total_proxied);
   // store data for abuse vote
+}
+
+ACTION delphioracle::makemedians() {
+  require_auth(get_self());
+
+  if (!is_medians_active()) {
+    return;
+  }
+  
+  pairstable pairs(_self, _self.value);
+  for (auto itr = pairs.begin(); itr != pairs.end(); ++itr) {
+    make_records_for_medians_table(median_types::day, itr->name, get_self());
+    make_records_for_medians_table(median_types::week, itr->name, get_self());
+    make_records_for_medians_table(median_types::month, itr->name, get_self());
+  }
+}
+
+void delphioracle::make_records_for_medians_table(median_types type, const name& pair, const name& payer) {
+    if (!is_medians_active()) {
+    return;
+  }
+  
+  medianstable medians_table(get_self(), pair.value);
+  const auto count_type_elements = std::count_if(medians_table.begin(), medians_table.end(), 
+    [&](medians medians_obj) { 
+      return medians_obj.type == medians::get_type(type); 
+    });
+
+  if (count_type_elements != limits.at(type)) {
+    const auto need_make_elements = limits.at(type) - count_type_elements;
+    for (auto counter = 0; counter < need_make_elements; ++counter) {
+      medians_table.emplace(payer, [&](auto& medians_obj) {
+        medians_obj.id = medians_table.available_primary_key();
+        medians_obj.type = medians::get_type(type);
+        medians_obj.value = 0;
+        medians_obj.request_count = 0;
+        medians_obj.timestamp = NULL_TIME_POINT;
+      });
+    }
+  }
+}
+
+const time_point delphioracle::get_round_up_current_time(median_types type) const {
+  uint32_t current_time_sec = current_time_point().sec_since_epoch();
+  current_time_sec += time_consts.at(median_types::day) * 20; // debug
+
+  auto itr = time_consts.find(type);
+  if (itr != time_consts.end()) {
+    auto remainder = current_time_sec % itr->second;
+    return time_point(seconds(current_time_sec - remainder));
+  }
+
+  return NULL_TIME_POINT;
+}
+
+bool delphioracle::is_in_time_range(median_types type, const time_point& start_time_range, 
+  const time_point& time_value, bool is_previous_value) const {
+  time_point select_time_value = time_value;
+
+  auto itr = time_consts.find(type);
+  if (itr != time_consts.end()) {
+    if (is_previous_value) {
+      select_time_value -= seconds(itr->second);
+    }
+    time_point end_time_range = start_time_range + time_point(seconds(itr->second));
+    return (start_time_range <= select_time_value) && (select_time_value < end_time_range);
+  }
+
+  return false;
+}
+
+void delphioracle::erase_medians(const name& pair) {
+  medianstable medians(get_self(), pair.value);
+  
+  while (medians.begin() != medians.end()) {
+      auto itr = medians.end();
+      itr--;
+      medians.erase(itr);
+  }
+}
+
+void delphioracle::update_medians(const name& owner, const uint64_t value, pairstable::const_iterator pair_itr) {  
+  if (!is_medians_active()) {
+    return;
+  }
+  
+  medianstable medians_table(get_self(), pair_itr->name.value);
+  const auto count_elements = std::distance(medians_table.begin(), medians_table.end());
+
+  if (count_elements > 0) {
+    update_medians_by_types(median_types::day, owner, pair_itr->name, get_round_up_current_time(median_types::day), value);
+  }
+}
+
+void delphioracle::update_medians_by_types(median_types type, const name& owner, const name& pair,
+  const time_point& median_timestamp, const uint64_t median_value, const uint64_t median_request_count) {
+  switch (type)
+  {
+  case median_types::day:
+  case median_types::week:
+  case median_types::month:
+  {
+    medianstable medians_table(get_self(), pair.value);
+    auto medians_timestamp_index = medians_table.get_index<"timestamp"_n>();
+
+    struct low_medians {
+      uint64_t id = 0;
+      time_point timestamp = NULL_TIME_POINT;
+    };
+    std::vector<low_medians> low_medians_elements;
+    for (auto itr = medians_timestamp_index.begin(); itr != medians_timestamp_index.end(); ++itr) {
+      if (itr->type == medians::get_type(type)) {
+        low_medians obj{itr->id, itr->timestamp};
+        low_medians_elements.push_back(std::move(obj));
+      }
+    }
+
+    auto low_medians_index = std::find_if(low_medians_elements.begin(), low_medians_elements.end(), 
+      [&](const low_medians &low_medians_element) { 
+        return is_in_time_range(type, low_medians_element.timestamp, median_timestamp); 
+      });
+
+    if (low_medians_index != low_medians_elements.end()) {
+      auto medians_table_index = medians_table.find(low_medians_index->id);
+      medians_table.modify(medians_table_index, owner, [&](medians &obj) {        
+        obj.value += median_value;
+        obj.request_count += median_request_count;
+      });
+    } else {
+      auto update_itr = medians_table.find(low_medians_elements.begin()->id);
+      auto temp_medians_value = update_itr->value;
+      auto temp_medians_timestamp = update_itr->timestamp;
+      auto temp_medians_request_count = update_itr->request_count;
+
+      if (type != median_types::day) { // TODO ingore this check, so we have only one record for day
+        auto prev_low_medians_index = std::find_if(low_medians_elements.begin(), low_medians_elements.end(), 
+        [&](const low_medians &low_medians_element) { 
+          return is_in_time_range(type, low_medians_element.timestamp, median_timestamp, true); 
+        });
+
+        if (prev_low_medians_index != low_medians_elements.end())
+        {
+          auto prev_medians_itr = medians_table.find(prev_low_medians_index->id);
+          temp_medians_value = prev_medians_itr->value;
+          temp_medians_timestamp = prev_medians_itr->timestamp;  
+          temp_medians_request_count = prev_medians_itr->request_count; 
+        }
+      }
+
+      medians_table.modify(*update_itr, owner, [&](medians &obj) {
+        obj.value = median_value;
+        obj.request_count = median_request_count;
+        obj.timestamp = get_round_up_current_time(type);
+      });
+
+      if (temp_medians_value != 0 && temp_medians_request_count != 0) {
+        update_medians_by_types(get_next_type(type), owner, pair, temp_medians_timestamp, 
+          temp_medians_value, temp_medians_request_count);
+      }
+    }
+  }
+  default: {}
+  }
+}
+
+median_types delphioracle::get_next_type(median_types current_type) const {
+  switch (current_type)
+  {
+  case median_types::day:
+    return median_types::week;
+  case median_types::week:
+    return median_types::month;
+  case median_types::month:
+    return median_types::none;
+  default:
+    return median_types::none;
+  }
+}
+
+ACTION delphioracle::initmedians(bool is_active) {
+  require_auth(get_self());
+  
+  flagmedians flag_medians_obj; 
+  singleton_flag_medians flag_medians_instance(get_self(), get_self().value);
+
+  auto obj = flag_medians_instance.get_or_create(get_self(), flag_medians_obj);
+  obj.is_active = is_active;
+  flag_medians_instance.set(obj, get_self());
 }
