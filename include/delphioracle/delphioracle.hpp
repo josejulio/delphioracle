@@ -29,12 +29,13 @@ static const std::string system_str("system");
 
 static const asset one_larimer = asset(1, symbol("TLOS", 4));
 
-    enum class median_types : uint8_t {
-      day = 0,
-      week = 1,
-      month = 2,
-      none = 3,
-    };
+enum class median_types : int8_t {
+    none = -1,
+    day = 0,
+    week = 1,
+    month = 2,
+    current_week = 4,
+};
 
 const checksum256 NULL_HASH;
 const eosio::time_point NULL_TIME_POINT = eosio::time_point(eosio::microseconds(0));
@@ -293,7 +294,7 @@ CONTRACT delphioracle : public eosio::contract {
 
   TABLE medians {
     uint64_t   id;
-    uint8_t    type;
+    int8_t     type;
     uint64_t   value;
     uint64_t   request_count;
     time_point timestamp;
@@ -301,10 +302,15 @@ CONTRACT delphioracle : public eosio::contract {
     uint64_t primary_key() const { return id; }
     uint64_t by_timestamp() const { return timestamp.elapsed.to_seconds(); }
 
-    static uint8_t get_type(median_types type) {
-      return static_cast<uint8_t>(type);
+    static int8_t get_type(median_types type) {
+      return static_cast<int8_t>(type);
     }
   };
+
+  TABLE debug {
+    int64_t days = 0;
+  };
+  using singleton_debug = eosio::singleton<"debug"_n, debug>;
 
   TABLE flagmedians {
     bool is_active = false;
@@ -367,6 +373,7 @@ CONTRACT delphioracle : public eosio::contract {
   ACTION voteabuser(name owner, name abuser);
   ACTION makemedians();
   ACTION initmedians(bool is_active);
+  ACTION updtversion();
 
   [[eosio::on_notify("eosio.token::transfer")]]
   void transfer(uint64_t sender, uint64_t receiver) {
@@ -406,9 +413,12 @@ CONTRACT delphioracle : public eosio::contract {
   using updateusers_action = action_wrapper<"updateusers"_n, &delphioracle::updateusers>;
   using makemedians_actions = action_wrapper<"makemedians"_n, &delphioracle::makemedians>;
   using initmedians_actions = action_wrapper<"initmedians"_n, &delphioracle::initmedians>;
+  using updtversion_actions = action_wrapper<"updtversion"_n, &delphioracle::updtversion>;
   using transfer_action = action_wrapper<name("transfer"), &delphioracle::transfer>;
 
 private:
+  bool _is_active_current_week_cashe = false;
+
   void make_records_for_medians_table(median_types type, const name& pair, const name& payer);
   const time_point get_round_up_current_time(median_types type) const;
   bool is_in_time_range(median_types type, const time_point& start_time_range,
@@ -417,7 +427,12 @@ private:
   void update_medians(const name& owner, const uint64_t value, pairstable::const_iterator pair_itr);
   void update_medians_by_types(median_types type, const name& owner, const name& pair, 
     const time_point& median_timestamp, const uint64_t median_value, const uint64_t median_request_count = 1);
+  //void update_medians_by_types_old(median_types type, const name& owner, const name& pair, 
+  //  const time_point& median_timestamp, const uint64_t median_value, const uint64_t median_request_count = 1);
+  //void update_medians_by_types_new(median_types type, const name& owner, const name& pair, 
+  //  const time_point& median_timestamp, const uint64_t median_value, const uint64_t median_request_count = 1);
   median_types get_next_type(median_types current_type) const;
+  bool is_active_current_week() const;
 
   //Check if calling account is a qualified oracle
   bool check_oracle(const name owner) {
