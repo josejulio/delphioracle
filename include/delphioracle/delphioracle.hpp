@@ -375,6 +375,11 @@ CONTRACT delphioracle : public eosio::contract {
   ACTION initmedians(bool is_active);
   ACTION updtversion();
 
+  ACTION debugadddays(int32_t days);
+  using debugadddays_action = action_wrapper<name("debugadddays"), &delphioracle::debugadddays>;
+  ACTION dabugrstdays();
+  using dabugrstdays_action = action_wrapper<name("dabugrstdays"), &delphioracle::dabugrstdays>;
+
   [[eosio::on_notify("eosio.token::transfer")]]
   void transfer(uint64_t sender, uint64_t receiver) {
     //print("transfer notifier", "\n");
@@ -427,12 +432,8 @@ private:
   void update_medians(const name& owner, const uint64_t value, pairstable::const_iterator pair_itr);
   void update_medians_by_types(median_types type, const name& owner, const name& pair, 
     const time_point& median_timestamp, const uint64_t median_value, const uint64_t median_request_count = 1);
-  //void update_medians_by_types_old(median_types type, const name& owner, const name& pair, 
-  //  const time_point& median_timestamp, const uint64_t median_value, const uint64_t median_request_count = 1);
-  //void update_medians_by_types_new(median_types type, const name& owner, const name& pair, 
-  //  const time_point& median_timestamp, const uint64_t median_value, const uint64_t median_request_count = 1);
-  median_types get_next_type(median_types current_type) const;
   bool is_active_current_week() const;
+  std::vector<median_types> GetUpdateMedians(median_types current_type) const;
 
   //Check if calling account is a qualified oracle
   bool check_oracle(const name owner) {
