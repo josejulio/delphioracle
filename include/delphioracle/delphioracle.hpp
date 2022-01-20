@@ -29,12 +29,13 @@ static const std::string system_str("system");
 
 static const asset one_larimer = asset(1, symbol("TLOS", 4));
 
-enum class median_types : int8_t {
-    none = -1,
+enum class median_types : uint8_t {
     day = 0,
     week = 1,
     month = 2,
     current_week = 4,
+
+    none = 255,
 };
 
 const checksum256 NULL_HASH;
@@ -294,21 +295,21 @@ CONTRACT delphioracle : public eosio::contract {
 
   TABLE medians {
     uint64_t   id;
-    int8_t     type;
-    uint64_t   value;
-    uint64_t   request_count;
-    time_point timestamp;
+    uint8_t    type = get_type(median_types::none);
+    uint64_t   value = 0;
+    uint64_t   request_count = 0;
+    time_point timestamp = NULL_TIME_POINT;
 
     uint64_t primary_key() const { return id; }
     uint64_t by_timestamp() const { return timestamp.elapsed.to_seconds(); }
 
-    static int8_t get_type(median_types type) {
-      return static_cast<int8_t>(type);
+    static uint8_t get_type(median_types type) {
+      return static_cast<uint8_t>(type);
     }
   };
 
   TABLE debug {
-    int64_t days = 0;
+    int32_t days = 0;
   };
   using singleton_debug = eosio::singleton<"debug"_n, debug>;
 
@@ -424,7 +425,7 @@ CONTRACT delphioracle : public eosio::contract {
 private:
   bool _is_active_current_week_cashe = false;
 
-  void make_records_for_medians_table(median_types type, const name& pair, const name& payer);
+  void make_records_for_medians_table(median_types type, const name& pair, const name& payer, const medians& default_median);
   const time_point get_round_up_current_time(median_types type) const;
   bool is_in_time_range(median_types type, const time_point& start_time_range,
     const time_point& time_value, bool is_previous_value = false) const;
