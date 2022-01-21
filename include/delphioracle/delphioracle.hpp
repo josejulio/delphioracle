@@ -308,11 +308,6 @@ CONTRACT delphioracle : public eosio::contract {
     }
   };
 
-  TABLE debug {
-    int32_t days = 0;
-  };
-  using singleton_debug = eosio::singleton<"debug"_n, debug>;
-
   TABLE flagmedians {
     bool is_active = false;
   };
@@ -375,11 +370,6 @@ CONTRACT delphioracle : public eosio::contract {
   ACTION makemedians();
   ACTION initmedians(bool is_active);
   ACTION updtversion();
-
-  ACTION debugadddays(int32_t days);
-  using debugadddays_action = action_wrapper<name("debugadddays"), &delphioracle::debugadddays>;
-  ACTION dabugrstdays();
-  using dabugrstdays_action = action_wrapper<name("dabugrstdays"), &delphioracle::dabugrstdays>;
 
   [[eosio::on_notify("eosio.token::transfer")]]
   void transfer(uint64_t sender, uint64_t receiver) {

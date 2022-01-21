@@ -599,9 +599,8 @@ void delphioracle::make_records_for_medians_table(median_types type, const name&
 const time_point delphioracle::get_round_up_current_time(median_types type) const {
   time_t current_time_sec = static_cast<time_t>(current_time_point().sec_since_epoch());
 
-  singleton_debug debug(get_self(), get_self().value);
-  if (debug.exists()) {
-    current_time_sec += time_consts.at(median_types::day) * debug.get().days;
+  if (!_is_active_current_week_cashe) {
+    current_time_sec += time_consts.at(median_types::day) * 20;
   }
 
   auto get_type_time = [&]() -> time_point {
@@ -891,28 +890,4 @@ ACTION delphioracle::updtversion() {
       }
     }
   }
-
-  singleton_debug debug_instance(get_self(), get_self().value);
-  auto debug_obj = debug_instance.get();
-  debug_obj.days -= 20;
-  debug_instance.set(debug_obj, get_self());
-}
-
-ACTION delphioracle::debugadddays(int32_t days) {
-  require_auth(get_self());
-
-  debug debug_obj; 
-  singleton_debug debug_instance(get_self(), get_self().value);
-
-  auto obj = debug_instance.get_or_create(get_self(), debug_obj);
-  obj.days += days;
-  debug_instance.set(obj, get_self());
-}
-
-ACTION delphioracle::dabugrstdays() {
-  require_auth(get_self());
-  
-  debug debug_obj; 
-  singleton_debug debug_instance(get_self(), get_self().value);
-  debug_instance.set(debug_obj, get_self());
 }
