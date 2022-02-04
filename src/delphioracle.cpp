@@ -14,9 +14,8 @@
 */
 
 #include <delphioracle.hpp>
-#include <map>
+#include <custom_ctime.hpp>
 #include <algorithm>
-#include <ctime>
 
 namespace {
   const std::map<median_types, uint8_t> limits = {
@@ -609,10 +608,12 @@ const time_point delphioracle::get_round_up_current_time(median_types type) cons
       auto remainder = current_time_sec % itr->second;
       return time_point_sec(current_time_sec - remainder);
     }
+
+    return NULL_TIME_POINT;
   };
 
   auto get_type_month = [&]() -> time_point {
-    auto struct_current_time = std::gmtime(&current_time_sec);
+    auto struct_current_time = custom_ctime::gmtime(&current_time_sec);
     
     check(struct_current_time != nullptr, "error get current month");
     
@@ -621,7 +622,7 @@ const time_point delphioracle::get_round_up_current_time(median_types type) cons
     struct_current_time->tm_hour = 0;
     struct_current_time->tm_mday = 1; 
 
-    auto current_time = mktime(struct_current_time);
+    auto current_time = custom_ctime::mktime(struct_current_time);
     return time_point_sec(static_cast<int32_t>(current_time));
   };
 
@@ -661,12 +662,12 @@ bool delphioracle::is_in_time_range(median_types type, const time_point& start_t
     std::tm* result = nullptr;
     
     time_t current_time_sec = static_cast<time_t>(select_time_value.sec_since_epoch());
-    result = std::gmtime(&current_time_sec);
+    result = custom_ctime::gmtime(&current_time_sec);
     check(result != nullptr, "error get current time in range");
     auto struct_current_time = *result;
 
     time_t start_time_range_sec = static_cast<time_t>(start_time_range.sec_since_epoch());
-    result = std::gmtime(&start_time_range_sec);
+    result = custom_ctime::gmtime(&start_time_range_sec);
     check(result != nullptr, "error get start time in range");
     auto struct_start_time_range = *result;
 
@@ -858,7 +859,7 @@ ACTION delphioracle::updtversion() {
       if (itr->type == medians::get_type(median_types::week) 
         && is_in_time_range(median_types::week, itr->timestamp, get_round_up_current_time(median_types::day))) {
           temp_current_week = *itr;
-          medians_timestamp_index.modify(*itr, get_self(), [&](medians &obj) {
+          medians_timestamp_index.modify(itr, get_self(), [&](medians &obj) {
             obj.value = 0;
             obj.request_count = 0;
             obj.timestamp = NULL_TIME_POINT;  
@@ -870,7 +871,7 @@ ACTION delphioracle::updtversion() {
     for (auto itr = medians_timestamp_index.begin(); itr != medians_timestamp_index.end(); ++itr) {
       if (itr->type == medians::get_type(median_types::month) 
         && is_in_time_range(median_types::month, itr->timestamp, get_round_up_current_time(median_types::day))) {          
-          medians_timestamp_index.modify(*itr, get_self(), [&](medians &obj) {
+          medians_timestamp_index.modify(itr, get_self(), [&](medians &obj) {
             obj.value += temp_current_week.value;
             obj.request_count += temp_current_week.request_count;
           });
