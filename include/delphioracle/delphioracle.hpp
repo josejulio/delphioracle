@@ -140,6 +140,7 @@ CONTRACT delphioracle : public eosio::contract {
     uint64_t id;
     uint64_t total_datapoints_count;
     asset total_claimed = asset(0, symbol("TLOS", 4));
+    uint32_t last_daily_average_run;
 
     //constants
     uint64_t datapoints_per_instrument = 21;
@@ -154,6 +155,7 @@ CONTRACT delphioracle : public eosio::contract {
     uint64_t min_bounty_delay = 604800;
     uint64_t new_bounty_delay = 259200;
     uint64_t daily_datapoints_per_instrument = 45;
+    uint32_t daily_average_timeout = 3600;
 
     uint64_t primary_key() const { return id; }
   };

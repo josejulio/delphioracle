@@ -90,8 +90,22 @@ ACTION delphioracle::write(const name owner, const std::vector<quote>& quotes) {
 
     update_datapoints(owner, quotes[i].value, itr);
     update_medians(owner, quotes[i].value, itr);
-    update_daily_datapoints(itr->name);
-    update_averages(itr->name);
+
+    // The last day averages code does not need to be updated on every write - prevent from executing it too fast
+    globaltable gtable(_self, _self.value);
+    auto gitr = gtable.begin();
+
+    int32_t next_run_sec = gitr->last_daily_average_run + gitr->daily_average_timeout;
+    int32_t current_time_sec = current_time_point().sec_since_epoch();
+
+    if (current_time_sec > next_run_sec) {
+        gtable.modify(gitr, _self, [&](auto& global_value) {
+            global_value.last_daily_average_run = current_time_sec;
+        });
+
+        update_daily_datapoints(itr->name);
+        update_averages(itr->name);
+    }
   }
 }
 
