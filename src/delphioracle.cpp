@@ -167,6 +167,9 @@ ACTION delphioracle::configure(globalinput g) {
       o.paid = g.paid;
       o.min_bounty_delay = g.min_bounty_delay;
       o.new_bounty_delay = g.new_bounty_delay;
+      o.daily_datapoints_per_instrument = g.daily_datapoints_per_instrument;
+      o.daily_average_timeout = g.daily_average_timeout;
+      o.last_daily_average_run = 0;
     });
   } else {
     gtable.modify(*gitr, _self, [&]( auto& o ) {
@@ -181,6 +184,9 @@ ACTION delphioracle::configure(globalinput g) {
       o.paid = g.paid;
       o.min_bounty_delay = g.min_bounty_delay;
       o.new_bounty_delay = g.new_bounty_delay;
+      o.daily_datapoints_per_instrument = g.daily_datapoints_per_instrument;
+      o.daily_average_timeout = g.daily_average_timeout;
+      o.last_daily_average_run = 0;
     });
   }
 
@@ -980,7 +986,7 @@ uint64_t delphioracle::compute_last_days_average(name instrument, uint8_t days) 
         daily_datapoints_timestamp_index.rbegin(),
         past_days,
         0,
-        [](auto& prev, auto& data_point) {
+        [](const auto& prev, auto& data_point) {
             return prev + data_point.value;
         }
     ) / days;

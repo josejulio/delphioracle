@@ -77,6 +77,8 @@ CONTRACT delphioracle : public eosio::contract {
     uint64_t paid;
     uint64_t min_bounty_delay;
     uint64_t new_bounty_delay;
+    uint64_t daily_datapoints_per_instrument;
+    uint32_t daily_average_timeout;
   };
 
   struct pairinput {
@@ -350,7 +352,7 @@ CONTRACT delphioracle : public eosio::contract {
   using singleton_flag_medians = eosio::singleton<"flagmedians"_n, flagmedians>;
       
   //Multi index types definition
-  typedef eosio::multi_index<"global"_n, global> globaltable;
+  typedef eosio::multi_index<"globalv2"_n, global> globaltable;
   typedef eosio::multi_index<"global"_n, oglobal> oglobaltable;
 
   typedef eosio::multi_index<"custodians"_n, custodians> custodianstable;
