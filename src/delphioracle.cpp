@@ -367,7 +367,7 @@ ACTION delphioracle::votebounty(name owner, name bounty) {
 
       vote_approved = true;
     }
-    else 
+    else
       err_msg = "custodian already voting for bounty";
   }
 
@@ -386,7 +386,7 @@ ACTION delphioracle::votebounty(name owner, name bounty) {
 
       vote_approved = true;
     }
-    else 
+    else
       err_msg = "oracle already voting for bounty";
 
   }
@@ -400,10 +400,10 @@ ACTION delphioracle::votebounty(name owner, name bounty) {
   uint64_t approving_custodians_count = std::distance(pitr->approving_custodians.begin(), pitr->approving_custodians.end());
   uint64_t approving_oracles_count = std::distance(pitr->approving_oracles.begin(), pitr->approving_oracles.end());
 
-  if (approving_custodians_count >= gitr->approving_custodians_threshold 
+  if (approving_custodians_count >= gitr->approving_custodians_threshold
     && approving_oracles_count >= gitr->approving_oracles_threshold) {
       //print("activate bounty", "\n");
-      
+
       pairs.modify(*pitr, _self, [&]( auto& s ) {
         s.active = true;
       });
@@ -479,7 +479,7 @@ ACTION delphioracle::delcustodian(name name) {
 //registers a user
 ACTION delphioracle::reguser(name owner) {
   require_auth(owner);
-  if( !check_user(owner) ) 
+  if( !check_user(owner) )
     create_user( owner );
 }
 
@@ -591,7 +591,7 @@ ACTION delphioracle::makemedians() {
   if (!is_medians_active()) {
     return;
   }
-  
+
   pairstable pairs(_self, _self.value);
   for (auto itr = pairs.begin(); itr != pairs.end(); ++itr) {
     make_records_for_medians_table(median_types::day,          itr->name, get_self(), medians());
@@ -605,11 +605,11 @@ void delphioracle::make_records_for_medians_table(median_types type, const name&
     if (!is_medians_active()) {
     return;
   }
-  
+
   medianstable medians_table(get_self(), pair.value);
-  const auto count_type_elements = std::count_if(medians_table.begin(), medians_table.end(), 
-    [&](medians medians_obj) { 
-      return medians_obj.type == medians::get_type(type); 
+  const auto count_type_elements = std::count_if(medians_table.begin(), medians_table.end(),
+    [&](medians medians_obj) {
+      return medians_obj.type == medians::get_type(type);
   });
 
   if (count_type_elements != limits.at(type)) {
@@ -645,13 +645,13 @@ const time_point delphioracle::get_round_up_current_time(median_types type) cons
 
   auto get_type_month = [&]() -> time_point {
     auto struct_current_time = custom_ctime::gmtime(&current_time_sec);
-    
+
     check(struct_current_time != nullptr, "error get current month");
-    
-    struct_current_time->tm_sec = 0; 
+
+    struct_current_time->tm_sec = 0;
     struct_current_time->tm_min = 0;
     struct_current_time->tm_hour = 0;
-    struct_current_time->tm_mday = 1; 
+    struct_current_time->tm_mday = 1;
 
     auto current_time = custom_ctime::mktime(struct_current_time);
     return time_point_sec(static_cast<int32_t>(current_time));
@@ -673,7 +673,7 @@ const time_point delphioracle::get_round_up_current_time(median_types type) cons
   return NULL_TIME_POINT;
 }
 
-bool delphioracle::is_in_time_range(median_types type, const time_point& start_time_range, 
+bool delphioracle::is_in_time_range(median_types type, const time_point& start_time_range,
   const time_point& time_value, bool is_previous_value) const {
   time_point select_time_value = time_value;
 
@@ -691,7 +691,7 @@ bool delphioracle::is_in_time_range(median_types type, const time_point& start_t
 
   auto is_in_time_month_range = [&]() {
     std::tm* result = nullptr;
-    
+
     time_t current_time_sec = static_cast<time_t>(select_time_value.sec_since_epoch());
     result = custom_ctime::gmtime(&current_time_sec);
     check(result != nullptr, "error get current time in range");
@@ -702,8 +702,8 @@ bool delphioracle::is_in_time_range(median_types type, const time_point& start_t
     check(result != nullptr, "error get start time in range");
     auto struct_start_time_range = *result;
 
-    return struct_start_time_range.tm_year == struct_current_time.tm_year 
-        && struct_start_time_range.tm_mon  == struct_current_time.tm_mon 
+    return struct_start_time_range.tm_year == struct_current_time.tm_year
+        && struct_start_time_range.tm_mon  == struct_current_time.tm_mon
         && struct_start_time_range.tm_mday <= struct_current_time.tm_mday;
   };
 
@@ -725,7 +725,7 @@ bool delphioracle::is_in_time_range(median_types type, const time_point& start_t
 
 void delphioracle::erase_medians(const name& pair) {
   medianstable medians(get_self(), pair.value);
-  
+
   while (medians.begin() != medians.end()) {
       auto itr = medians.end();
       itr--;
@@ -733,13 +733,13 @@ void delphioracle::erase_medians(const name& pair) {
   }
 }
 
-void delphioracle::update_medians(const name& owner, const uint64_t value, pairstable::const_iterator pair_itr) {  
+void delphioracle::update_medians(const name& owner, const uint64_t value, pairstable::const_iterator pair_itr) {
   if (!is_medians_active()) {
     return;
   }
 
   _is_active_current_week_cashe = is_active_current_week();
-  
+
   medianstable medians_table(get_self(), pair_itr->name.value);
   const auto count_elements = std::distance(medians_table.begin(), medians_table.end());
 
@@ -804,7 +804,7 @@ void delphioracle::update_medians_by_types(median_types type, const name& owner,
   {
     if (short_medians_index != short_medians_elements.end()) {
       auto medians_table_index = medians_table.find(short_medians_index->id);
-      medians_table.modify(medians_table_index, owner, [&](medians &obj) {        
+      medians_table.modify(medians_table_index, owner, [&](medians &obj) {
         obj.value += median_value;
         obj.request_count += median_request_count;
       });
@@ -815,18 +815,18 @@ void delphioracle::update_medians_by_types(median_types type, const name& owner,
       auto temp_medians_request_count = update_itr->request_count;
 
       // TODO ingore this check, so we have only one record for day or current week
-      if (type != median_types::day || type != median_types::current_week) { 
-        auto prev_short_medians_index = std::find_if(short_medians_elements.begin(), short_medians_elements.end(), 
-        [&](const short_type_medians &short_medians_element) { 
-          return is_in_time_range(type, short_medians_element.timestamp, median_timestamp, true); 
+      if (type != median_types::day || type != median_types::current_week) {
+        auto prev_short_medians_index = std::find_if(short_medians_elements.begin(), short_medians_elements.end(),
+        [&](const short_type_medians &short_medians_element) {
+          return is_in_time_range(type, short_medians_element.timestamp, median_timestamp, true);
         });
 
         if (prev_short_medians_index != short_medians_elements.end())
         {
           auto prev_medians_itr = medians_table.find(prev_short_medians_index->id);
           temp_medians_value = prev_medians_itr->value;
-          temp_medians_timestamp = prev_medians_itr->timestamp;  
-          temp_medians_request_count = prev_medians_itr->request_count; 
+          temp_medians_timestamp = prev_medians_itr->timestamp;
+          temp_medians_request_count = prev_medians_itr->request_count;
         }
       }
 
@@ -852,7 +852,7 @@ std::vector<median_types> delphioracle::GetUpdateMedians(median_types current_ty
   switch (current_type)
   {
     case median_types::day: // update for current_week, month - new implementation
-      return _is_active_current_week_cashe ? 
+      return _is_active_current_week_cashe ?
         vect{median_types::current_week, median_types::month} : vect{median_types::week};
     case median_types::current_week:
       return vect{median_types::week};
@@ -864,8 +864,8 @@ std::vector<median_types> delphioracle::GetUpdateMedians(median_types current_ty
 
 ACTION delphioracle::initmedians(bool is_active) {
   require_auth(get_self());
-  
-  flagmedians flag_medians_obj; 
+
+  flagmedians flag_medians_obj;
   singleton_flag_medians flag_medians_instance(get_self(), get_self().value);
 
   auto obj = flag_medians_instance.get_or_create(get_self(), flag_medians_obj);
@@ -878,30 +878,30 @@ ACTION delphioracle::updtversion() {
 
   check(is_medians_active(), "not active medians");
   check(!is_active_current_week(), "curent week record exist, you using actual contract version");
- 
+
   pairstable pairs(_self, _self.value);
-  for (auto pair_itr = pairs.begin(); pair_itr != pairs.end(); ++pair_itr) {  
+  for (auto pair_itr = pairs.begin(); pair_itr != pairs.end(); ++pair_itr) {
 
     medianstable medians_table(get_self(), pair_itr->name.value);
-    auto medians_timestamp_index = medians_table.get_index<"timestamp"_n>();    
+    auto medians_timestamp_index = medians_table.get_index<"timestamp"_n>();
 
     medians temp_current_week;
     for (auto itr = medians_timestamp_index.begin(); itr != medians_timestamp_index.end(); ++itr) {
-      if (itr->type == medians::get_type(median_types::week) 
+      if (itr->type == medians::get_type(median_types::week)
         && is_in_time_range(median_types::week, itr->timestamp, get_round_up_current_time(median_types::day))) {
           temp_current_week = *itr;
           medians_timestamp_index.modify(itr, get_self(), [&](medians &obj) {
             obj.value = 0;
             obj.request_count = 0;
-            obj.timestamp = NULL_TIME_POINT;  
+            obj.timestamp = NULL_TIME_POINT;
           });
           break;
       }
     }
 
     for (auto itr = medians_timestamp_index.begin(); itr != medians_timestamp_index.end(); ++itr) {
-      if (itr->type == medians::get_type(median_types::month) 
-        && is_in_time_range(median_types::month, itr->timestamp, get_round_up_current_time(median_types::day))) {          
+      if (itr->type == medians::get_type(median_types::month)
+        && is_in_time_range(median_types::month, itr->timestamp, get_round_up_current_time(median_types::day))) {
           medians_timestamp_index.modify(itr, get_self(), [&](medians &obj) {
             obj.value += temp_current_week.value;
             obj.request_count += temp_current_week.request_count;

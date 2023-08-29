@@ -350,7 +350,7 @@ CONTRACT delphioracle : public eosio::contract {
     bool is_active = false;
   };
   using singleton_flag_medians = eosio::singleton<"flagmedians"_n, flagmedians>;
-      
+
   //Multi index types definition
   typedef eosio::multi_index<"globalv2"_n, global> globaltable;
   typedef eosio::multi_index<"global"_n, oglobal> oglobaltable;
@@ -394,7 +394,7 @@ CONTRACT delphioracle : public eosio::contract {
 
   typedef eosio::multi_index<"abusers"_n, abusers,
       indexed_by<"votes"_n, const_mem_fun<abusers, uint64_t, &abusers::by_votes>>> abuserstable;
-  
+
   typedef eosio::multi_index<"medians"_n, medians,
       indexed_by<"timestamp"_n, const_mem_fun<medians, uint64_t, &medians::by_timestamp>>> medianstable;
 
@@ -419,7 +419,7 @@ CONTRACT delphioracle : public eosio::contract {
   [[eosio::on_notify("eosio.token::transfer")]]
   void transfer(uint64_t sender, uint64_t receiver) {
     //print("transfer notifier", "\n");
-    
+
     auto transfer_data = unpack_action_data<delphioracle::st_transfer>();
     //print("transfer ", name{transfer_data.from}, " ",  name{transfer_data.to}, " ", transfer_data.quantity, "\n");
 
@@ -466,7 +466,7 @@ private:
     const time_point& time_value, bool is_previous_value = false) const;
   void erase_medians(const name& pair);
   void update_medians(const name& owner, const uint64_t value, pairstable::const_iterator pair_itr);
-  void update_medians_by_types(median_types type, const name& owner, const name& pair, 
+  void update_medians_by_types(median_types type, const name& owner, const name& pair,
     const time_point& median_timestamp, const uint64_t median_value, const uint64_t median_request_count = 1);
   bool is_active_current_week() const;
   std::vector<median_types> GetUpdateMedians(median_types current_type) const;
@@ -480,7 +480,7 @@ private:
     globaltable gtable(_self, _self.value);
     auto gitr = gtable.begin();
     //print("Checking oracle: ", owner, "\n");
-    
+
     producers_table ptable("eosio"_n, name("eosio").value);
     auto p_idx = ptable.get_index<"prototalvote"_n>();
     auto p_itr = p_idx.begin();
@@ -494,7 +494,7 @@ private:
       p_itr++;
       count++;
 
-      if (count > gitr->minimum_rank) 
+      if (count > gitr->minimum_rank)
         break;
     }
 
@@ -579,7 +579,7 @@ private:
     uint64_t count = 0;
     while(itr != sorted_idx.end() && count < 30) {
       //print(itr->owner, "\n");
-      
+
       if(check_oracle(itr->owner) == true) {
         bps.push_back(itr->owner);
         count++;
@@ -692,7 +692,7 @@ private:
     userstable users(_self, _self.value);
 
     auto uitr = users.find(from.value);
-    if ( uitr == users.end() ) 
+    if ( uitr == users.end() )
       create_user( from );
 
     uitr = users.find(from.value);
