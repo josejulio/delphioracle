@@ -932,7 +932,7 @@ ACTION delphioracle::updtversion() {
     - If there are less than `daily_datapoints_per_instrument` it will append it
 */
 void delphioracle::update_daily_datapoints(name instrument) {
-    std::optional<uint64_t> daily_median = get_daily_median(instrument);
+    std::optional<std::pair<time_point, uint64_t>> daily_median = get_daily_median(instrument);
     if (!daily_median) {
         return;
     }
@@ -944,20 +944,32 @@ void delphioracle::update_daily_datapoints(name instrument) {
     globaltable gtable(_self, _self.value);
     auto gitr = gtable.begin();
 
-    if (count > gitr->daily_datapoints_per_instrument) {
+    auto last_datapoint = daily_datapoints_timestamp_index.rbegin();
+
+    if (last_datapoint != daily_datapoints_timestamp_index.rend() && last_datapoint->timestamp == daily_median->first) {
+        // We are on the same day, just update
+        daily_datapoints_table.modify(
+            *last_datapoint,
+            _self,
+            [&](auto& datapoint) {
+                datapoint.value = daily_median->second;
+            }
+        );
+    } else if (count > gitr->daily_datapoints_per_instrument) {
+        auto target_record = daily_datapoints_timestamp_index.rbegin();
         daily_datapoints_timestamp_index.modify(
             daily_datapoints_timestamp_index.begin(),
             _self,
             [&](auto& datapoint) {
-                datapoint.value = *daily_median;
-                datapoint.timestamp = current_time_point();
+                datapoint.value = daily_median->second;
+                datapoint.timestamp = daily_median->first;
             }
         );
     } else {
         daily_datapoints_table.emplace(_self, [&](auto& datapoint) {
             datapoint.id = daily_datapoints_table.available_primary_key();
-            datapoint.value = *daily_median;
-            datapoint.timestamp = current_time_point();
+            datapoint.value = daily_median->second;
+            datapoint.timestamp = daily_median->first;
         });
     }
 }
@@ -1024,7 +1036,7 @@ void delphioracle::update_averages(name instrument) {
     }
 }
 
-std::optional<uint64_t> delphioracle::get_daily_median(name instrument) {
+std::optional<std::pair<time_point, uint64_t>> delphioracle::get_daily_median(name instrument) {
     medianstable medians_table(_self, instrument.value);
     auto medians_timestamp_index = medians_table.get_index<"timestamp"_n>();
 
@@ -1034,7 +1046,10 @@ std::optional<uint64_t> delphioracle::get_daily_median(name instrument) {
     });
 
     if (daily_median != medians_timestamp_index.rend()) {
-        return daily_median->value;
+        return std::pair(
+            daily_median->timestamp,
+            daily_median->value / daily_median->request_count
+        );
     }
 
     return {};

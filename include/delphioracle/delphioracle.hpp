@@ -473,7 +473,7 @@ private:
   void update_daily_datapoints(name instrument);
   uint64_t compute_last_days_average(name scope, uint8_t days);
   void update_averages(name instrument);
-  std::optional<uint64_t> get_daily_median(name instrument);
+  std::optional<std::pair<time_point, uint64_t>> get_daily_median(name instrument);
 
   //Check if calling account is a qualified oracle
   bool check_oracle(const name owner) {
