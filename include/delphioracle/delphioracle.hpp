@@ -77,6 +77,8 @@ CONTRACT delphioracle : public eosio::contract {
     uint64_t paid;
     uint64_t min_bounty_delay;
     uint64_t new_bounty_delay;
+    uint64_t daily_datapoints_per_instrument;
+    uint32_t daily_average_timeout;
   };
 
   struct pairinput {
@@ -132,6 +134,29 @@ CONTRACT delphioracle : public eosio::contract {
       name  to;
       asset quantity;
       std::string memo;
+  };
+
+  //Old Global config
+  TABLE oldglobal {
+    //variables
+    uint64_t id;
+    uint64_t total_datapoints_count;
+    asset total_claimed = asset(0, symbol("TLOS", 4));
+
+    //constants
+    uint64_t datapoints_per_instrument = 21;
+    uint64_t bars_per_instrument = 30;
+    uint64_t vote_interval = 10000;
+    uint64_t write_cooldown = 1000000 * 55;
+    uint64_t approver_threshold = 1;
+    uint64_t approving_oracles_threshold = 1;
+    uint64_t approving_custodians_threshold =1;
+    uint64_t minimum_rank = 105;
+    uint64_t paid = 21;
+    uint64_t min_bounty_delay = 604800;
+    uint64_t new_bounty_delay = 259200;
+
+    uint64_t primary_key() const { return id; }
   };
 
   //Global config
@@ -350,8 +375,9 @@ CONTRACT delphioracle : public eosio::contract {
   using singleton_flag_medians = eosio::singleton<"flagmedians"_n, flagmedians>;
       
   //Multi index types definition
-  typedef eosio::multi_index<"global"_n, global> globaltable;
-  typedef eosio::multi_index<"global"_n, oglobal> oglobaltable;
+  typedef eosio::multi_index<"global"_n, oldglobal> old_globaltable;
+  typedef eosio::multi_index<"globalv2"_n, global> globaltable;
+  typedef eosio::multi_index<"globalv2"_n, oglobal> oglobaltable;
 
   typedef eosio::multi_index<"custodians"_n, custodians> custodianstable;
 

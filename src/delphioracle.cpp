@@ -152,10 +152,21 @@ ACTION delphioracle::configure(globalinput g) {
   auto pitr = pairs.begin();
 
   if (gitr == gtable.end()) {
+    // First time running the configuration, retrieving from the old table
+    old_globaltable old_gtable(_self, _self.value);
+    int total_datapoints_count = 0;
+    asset total_claimed = asset(0, symbol("TLOS", 4));
+
+    auto old_gitr = old_gtable.begin();
+    if (old_gitr != old_gtable.end()) {
+        total_datapoints_count = old_gitr->total_datapoints_count;
+        total_claimed = old_gitr->total_claimed;
+    }
+
     gtable.emplace(_self, [&](auto& o) {
       o.id = 1;
-      o.total_datapoints_count = 0;
-      o.total_claimed = asset(0, symbol("TLOS", 4));
+      o.total_datapoints_count = total_datapoints_count;
+      o.total_claimed = total_claimed;
       o.datapoints_per_instrument = g.datapoints_per_instrument;
       o.bars_per_instrument = g.bars_per_instrument;
       o.vote_interval = g.vote_interval;
@@ -167,6 +178,7 @@ ACTION delphioracle::configure(globalinput g) {
       o.paid = g.paid;
       o.min_bounty_delay = g.min_bounty_delay;
       o.new_bounty_delay = g.new_bounty_delay;
+      o.last_daily_average_run = 0;
     });
   } else {
     gtable.modify(*gitr, _self, [&]( auto& o ) {
@@ -181,6 +193,7 @@ ACTION delphioracle::configure(globalinput g) {
       o.paid = g.paid;
       o.min_bounty_delay = g.min_bounty_delay;
       o.new_bounty_delay = g.new_bounty_delay;
+      o.last_daily_average_run = 0;
     });
   }
 
